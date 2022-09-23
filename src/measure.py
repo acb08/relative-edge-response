@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from PIL import Image
 import scipy.stats as stats
 from pathlib import Path
-from src.d00_utils.definitions import ROOT_DIR, REL_PATHS, STANDARD_DATASET_FILENAME
+from src.definitions import ROOT_DIR, REL_PATHS, STANDARD_DATASET_FILENAME
 import json
 # from src.d06_chip_study.create_edge_chips import measure_snr
 

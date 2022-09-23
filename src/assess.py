@@ -1,9 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
-from src.d05_rer_noise.measure import load_dataset
+from src.measure import load_dataset
 import json
-import src.d04_analysis.fit as fit
+import src.fit as fit
 
 
 class BlurredEdgeProperties(object):

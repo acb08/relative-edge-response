@@ -1,17 +1,17 @@
 from PIL import Image
 import numpy as np
-import src.d05_rer_noise.rer_defs as definitions
+import src.rer_defs as rer_defs
 import torch
 import torchvision.transforms as transforms
-from src.d00_utils.definitions import ROOT_DIR, REL_PATHS, STANDARD_DATASET_FILENAME
+from src.definitions import ROOT_DIR, REL_PATHS, STANDARD_DATASET_FILENAME
 from pathlib import Path
 import json
 import argparse
-import src.d00_utils.functions as functions
+import src.functions as functions
 
 
-def make_perfect_edge(size=definitions.pre_sample_size, theta=definitions.angle,
-                      dark_val=definitions.lam_black_reflectance, light_val=definitions.lam_white_reflectance,
+def make_perfect_edge(size=rer_defs.pre_sample_size, theta=rer_defs.angle,
+                      dark_val=rer_defs.lam_black_reflectance, light_val=rer_defs.lam_white_reflectance,
                       half_step=True):
 
     edge_start = size / 2
@@ -31,7 +31,7 @@ def make_perfect_edge(size=definitions.pre_sample_size, theta=definitions.angle,
     return edge_image, edge_locations
 
 
-def get_blur_parameters(target_q, scale_factor, conversion=definitions.airy_gauss_conversion):
+def get_blur_parameters(target_q, scale_factor, conversion=rer_defs.airy_gauss_conversion):
 
     airy_radius = scale_factor * target_q
     std = airy_radius / conversion
@@ -90,11 +90,11 @@ def make_edge_chips(config):
     q_values = config['q_values']
     chip_size = config['chip_size']
 
-    edge_image_size = definitions.pre_sample_size
-    theta = definitions.angle
-    half_step = definitions.half_step
-    dark_reflectance = definitions.lam_black_reflectance
-    light_reflectance = definitions.lam_white_reflectance
+    edge_image_size = rer_defs.pre_sample_size
+    theta = rer_defs.angle
+    half_step = rer_defs.half_step
+    dark_reflectance = rer_defs.lam_black_reflectance
+    light_reflectance = rer_defs.lam_white_reflectance
 
     scale_factor = int(edge_image_size / chip_size)
 

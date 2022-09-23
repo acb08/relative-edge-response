@@ -2,8 +2,8 @@ import json
 from torchvision import transforms
 from PIL import Image
 from pathlib import Path
-import src.d00_utils.functions as functions
-import src.d00_utils.definitions as definitions
+import src.functions as functions
+import src.definitions as definitions
 import numpy as np
 import copy
 import argparse
