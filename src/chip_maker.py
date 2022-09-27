@@ -17,18 +17,18 @@ def make_perfect_edge(size=rer_defs.pre_sample_size, theta=rer_defs.angle,
     edge_start = size / 2
     row_indices = np.arange(size)
     edge_locations = edge_start + np.tan(theta / 360) * row_indices
-    if half_step:
-        edge_val = 0.5 * (dark_val + light_val)
-    else:
-        edge_val = light_val
     edge_image = light_val * np.ones((size, size), dtype=np.float32)
+    edge_vals = np.zeros(size)
 
     for row_idx in row_indices:
         edge_loc = int(edge_locations[row_idx])
+        transition_pixel_frac = edge_locations[row_idx] - edge_loc
+        edge_val = transition_pixel_frac * (light_val - dark_val)
+        edge_vals[row_idx] = edge_val
         edge_image[row_idx, :edge_loc] = dark_val
         edge_image[row_idx, edge_loc] = edge_val
 
-    return edge_image, edge_locations
+    return edge_image, edge_locations, edge_vals
 
 
 def get_blur_parameters(target_q, scale_factor, conversion=rer_defs.airy_gauss_conversion):

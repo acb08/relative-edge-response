@@ -1,6 +1,6 @@
 pre_sample_size = 1024
 # baseline_resolution = 32
-angle = 10
+angle = 1
 lam_black_reflectance = 0
 lam_white_reflectance = 0.5
 half_step = True
