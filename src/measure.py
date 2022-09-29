@@ -175,19 +175,23 @@ def estimate_mtf(chip, plot=False):
     return mtf, esf, oversample_factor
 
 
-def measure_props(dataset, directory, plot=False):
+def measure_props(dataset, directory, plot=False, chip_sub_directory=REL_PATHS['edge_chips']):
 
-    blurred_chip_data = dataset['blurred_chips']
+    blurred_chip_data = dataset['chips']
 
     output_dir = Path(directory, 'mtf_plots')
     if plot and not output_dir.is_dir():
         Path.mkdir(output_dir)
 
+    if chip_sub_directory is not None:
+        chip_directory = Path(directory, chip_sub_directory)
+    else:
+        chip_directory = directory
     properties = {}
 
     for distorted_chip_name in blurred_chip_data.keys():
 
-        distorted_chip = get_image_array(directory, distorted_chip_name)
+        distorted_chip = get_image_array(chip_directory, distorted_chip_name)
         mtf, esf, oversample_factor = estimate_mtf(distorted_chip)
         rer = get_rer(esf, oversample_factor=oversample_factor)
         properties[str(distorted_chip_name)] = {
@@ -236,10 +240,9 @@ def plot_mtf(mtf, output_dir=None, chip_name=None, f_max=None):
     plt.show()
 
 
-def load_dataset(directory_key, kernel_size):
+def load_dataset(directory_key):
 
-    directory = Path(ROOT_DIR, REL_PATHS['analysis'], REL_PATHS['rer_study'], directory_key,
-                     f'distorted_chips_{kernel_size}')
+    directory = Path(ROOT_DIR, REL_PATHS['edge_datasets'], directory_key)
     with open(Path(directory, STANDARD_DATASET_FILENAME), 'r') as file:
         dataset = json.load(file)
 
@@ -268,8 +271,8 @@ def normed_circ_ap_mtf(f, f_cut=None):
 
 if __name__ == '__main__':
 
-    _directory_key = '0012'
-    _kernel_size = 31
-    _directory, _dataset = load_dataset(_directory_key, _kernel_size)
+    _directory_key = '0003'
+    # _kernel_size = 31
+    _directory, _dataset = load_dataset(_directory_key)
 
     _properties = measure_props(_dataset, _directory, plot=True)

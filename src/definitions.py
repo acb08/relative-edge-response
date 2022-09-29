@@ -27,8 +27,14 @@ STANDARD_CONFIG_USED_FILENAME = 'config_used.yml'
 # STANDARD_UID_FILENAME = 'uid.json'
 KEY_LENGTH = 4
 
+LORENTZ_TERMS = (0.2630388847587775, -0.4590111280646474)  # correction for Gaussian to
+
 # defines standard paths in project structure for different artifact types
 REL_PATHS = {
+    'edge_datasets': 'edge_datasets',
+    'transfer_function': 'transfer_function',
+    
+    
     'train_dataset': r'datasets/train',
     'test_dataset': r'datasets/test',
     'demo_dataset': r'datasets/demo',

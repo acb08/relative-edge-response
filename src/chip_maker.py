@@ -10,41 +10,124 @@ import argparse
 import src.functions as functions
 
 
+def check_edge_buffer(edge_indices, kernel_size, down_sample_factor, chip_size):
+
+    edge_buffer_left = np.floor(min(edge_indices - (kernel_size + 1)))
+    edge_buffer_left = int(np.floor(edge_buffer_left / down_sample_factor)) - 1
+
+    edge_buffer_right = np.ceil(max(edge_indices + (kernel_size + 1)))
+    edge_buffer_right = chip_size - (int(np.ceil(edge_buffer_right) / down_sample_factor) + 1)
+    edge_buffer = min(edge_buffer_left, edge_buffer_right)
+
+    if edge_buffer < 10:
+        print(f'Warning: narrow edge buffer: {edge_buffer}')
+
+    return edge_buffer
+
+
+def get_transition_frac(left_edge, right_edge, offset=0):
+
+    """
+    Calculates the fraction of two adjacent pixels that are on the left side of a near-vertical line passing through at
+    least one of the pixels. The equation of the line is defined in by numpy array indices, so the +x-direction is
+    down and the +y-direction is right. Accordingly, a line with a small positive slope is a near vertical edge that
+    moves gradually left to right going from the top to the bottom of the image.
+
+    :param left_edge: the boundary (in units of fraction of pixel width) of the line crossing the top edge of the two
+    adjacent pixels
+    :param right_edge: the boundary (in units of fraction of pixel width) of the line crossing the bottom edge of the
+    two adjacent pixels
+    :param offset: if left edge and right edge are specified in raw pixel values, subtracting the offset allows them to
+    fall back on [0, 1]
+    :return: fraction of each pixel to the left of the near vertical line
+    """
+
+    left_edge = left_edge - offset
+    right_edge = right_edge - offset
+
+    if left_edge < 0 or left_edge > 1:
+        raise ValueError('left edge location must fall between 0 and 1')
+    if right_edge < 0 or right_edge > 2:
+        raise ValueError('right edge location must fall between 0 and 2')
+
+    if right_edge <= 1:
+        triangle_area_1 = 0.5 * (right_edge - left_edge)
+        rectangle_area = left_edge
+        total_area_1 = triangle_area_1 + rectangle_area
+        total_area_2 = 0
+
+    else:
+        rectangle_area = 1
+        triangle_area_1 = 0.5 * ((1 - left_edge) / (right_edge - left_edge)) * (1 - left_edge)
+        total_area_1 = rectangle_area - triangle_area_1
+
+        triangle_area_2 = 0.5 * ((right_edge - 1) / (right_edge - left_edge)) * (right_edge - 1)
+        total_area_2 = triangle_area_2
+
+    return total_area_1, total_area_2
+
+
 def make_perfect_edge(size=rer_defs.pre_sample_size, theta=rer_defs.angle,
-                      dark_val=rer_defs.lam_black_reflectance, light_val=rer_defs.lam_white_reflectance,
-                      half_step=True):
+                      dark_val=rer_defs.lam_black_reflectance, light_val=rer_defs.lam_white_reflectance):
+
+    """
+    Generates an ideal, near-vertical edge image by defining a line in pixel (array) coordinates that starts at the
+    midpoint of the array and moves from left to right going down in the array, with the edge going from dark on the
+    left side to light on the right side.
+
+    :param size: size of the image (size, size)
+    :param theta: angle of the edge
+    :param dark_val: the value of the dark pixels in the array
+    :param light_val: the value of the light pixels in the array
+    :return: edge image plus some diagnostic metadata
+    """
 
     edge_start = size / 2
     row_indices = np.arange(size)
 
     edge_location_indices = np.arange(size + 1)
-    edge_locations = edge_start + np.tan(np.pi * theta / 180) * edge_location_indices
+    slope = np.tan(np.pi * theta / 180)
+
+    if slope < 0 or slope > 0.1:
+        raise ValueError('slope, tan(theta), must fall between 0 and 0.1')
+
+    top_edge_crossings = edge_start + slope * edge_location_indices
 
     edge_image = light_val * np.ones((size, size), dtype=np.float32)
+
+    # diagnostic stuff
     edge_vals = np.zeros(size)
-    edge_indices = np.zeros(size, dtype=np.int)
-    transition_pixel_fracs = np.zeros_like(edge_vals)
+    edge_indices = np.zeros(size, dtype=np.int32)
+    left_transition_pixel_fracs = np.zeros_like(edge_vals)
+    right_transition_pixel_fracs = np.zeros_like(edge_vals)
 
     for row_idx in row_indices:
-        edge_index = int(edge_locations[row_idx])
-        edge_indices[row_idx] = edge_index
-        transition_pixel_frac = 1 - (0.5 * (edge_locations[row_idx] + edge_locations[row_idx + 1]) - edge_index)
-        transition_pixel_fracs[row_idx] = transition_pixel_frac
-        edge_val = transition_pixel_frac * (light_val - dark_val)
-        edge_vals[row_idx] = edge_val
+
+        edge_index = int(top_edge_crossings[row_idx])
+        edge_indices[row_idx] = edge_index  # diagnostic
+
+        left_edge_location = top_edge_crossings[row_idx]
+        right_edge_location = top_edge_crossings[row_idx + 1]
+
+        frac_1, frac_2 = get_transition_frac(left_edge_location, right_edge_location, offset=edge_index)
+
+        left_transition_pixel_fracs[row_idx] = frac_1
+        right_transition_pixel_fracs[row_idx] = frac_2
+
+        edge_val_left = frac_1 * dark_val + (1-frac_1) * light_val
+        edge_val_right = frac_2 * dark_val + (1 - frac_2) * light_val
+
+        edge_vals[row_idx] = edge_val_left
+
         edge_image[row_idx, :edge_index] = dark_val
-        edge_image[row_idx, edge_index] = edge_val
+        edge_image[row_idx, edge_index] = edge_val_left
+        edge_image[row_idx, edge_index+1] = edge_val_right
 
-    return edge_image, edge_indices, edge_locations, transition_pixel_fracs, edge_vals
+    return edge_image, top_edge_crossings, left_transition_pixel_fracs, right_transition_pixel_fracs, edge_vals
 
 
-def get_blur_parameters(target_q, scale_factor, conversion=rer_defs.airy_gauss_conversion):
-
-    airy_radius = scale_factor * target_q
-    std = airy_radius / conversion
-    kernel_size = 8 * int(std) + 1
-
-    return std, kernel_size
+def get_kernel_size(std):
+    return 8 * int(np.round(std, 0)) + 1
 
 
 def apply_optical_blur(edge_image, kernel_size, sigma):
@@ -58,20 +141,26 @@ def apply_optical_blur(edge_image, kernel_size, sigma):
     return edge_image
 
 
-def p2_downsample(image, downsample_step_size):
+def integer_downsample(image, downsample_step_size):
     """
     Performs an interpolation-free down sampling by combining n-by-n pixel regions to form new a new downscaled image,
-    where n is a power of 2
+    where n must be an integer
     """
+
+    if np.max(image) > 1 or np.min(image) < 0:
+        raise ValueError('input image must fall on [0, 1]')
+
     start_size, compare = np.shape(image)[0], np.shape(image)[1]
 
     if start_size != compare:
         raise Exception('input image must be square')
-    div, rem = divmod(start_size, downsample_step_size)
-    if rem != 0 or np.log2(div) != int(np.log2(div)):
-        raise Exception('p2_downsample requires down sampling by a power of 2')
-    new_size = int(start_size / downsample_step_size)
-    chip = np.zeros((new_size, new_size))
+    new_size, remainder = divmod(start_size, downsample_step_size)
+
+    # if rem != 0 or np.log2(div) != int(np.log2(div)):
+    #     raise Exception('p2_downsample requires down sampling by a power of 2')
+    # new_size = int(start_size / downsample_step_size)
+
+    chip = 2 * np.ones((new_size, new_size))  # initialize with all values set to 2 to verify now stowaway initial vals
 
     for i in range(new_size):
         v_idx = i * downsample_step_size
@@ -80,13 +169,13 @@ def p2_downsample(image, downsample_step_size):
             sample = image[v_idx:v_idx + downsample_step_size, h_idx:h_idx + downsample_step_size]
             chip[i, j] = np.mean(sample)
 
-    return chip
+    return chip, new_size
 
 
 def convert_to_pil(image):
     if np.max(image) > 1 or np.min(image) < 0:
         raise ValueError('input image values must fall between 0 and 1')
-    image = 256 * image
+    image = 255 * image
     image = np.asarray(image, dtype=np.uint8)
     image = Image.fromarray(image)
     return image
@@ -94,21 +183,19 @@ def convert_to_pil(image):
 
 def make_edge_chips(config):
 
-    q_values = config['q_values']
-    chip_size = config['chip_size']
+    native_stds = config['native_stds']
+    down_sample_ratios = config['down_sample_ratios']
 
     edge_image_size = rer_defs.pre_sample_size
-    theta = rer_defs.angle
-    half_step = rer_defs.half_step
+    theta = rer_defs.angle  # degrees
     dark_reflectance = rer_defs.lam_black_reflectance
     light_reflectance = rer_defs.lam_white_reflectance
 
-    scale_factor = int(edge_image_size / chip_size)
+    perfect_edge, edge_indices, __, __, __ = make_perfect_edge(size=edge_image_size, theta=theta,
+                                                               dark_val=dark_reflectance,
+                                                               light_val=light_reflectance)
 
-    perfect_edge, edge_indices = make_perfect_edge(size=edge_image_size, theta=theta, dark_val=dark_reflectance,
-                                                   light_val=light_reflectance)
-
-    save_dir_parent = Path(ROOT_DIR, REL_PATHS['analysis'], REL_PATHS['rer_study'])
+    save_dir_parent = Path(ROOT_DIR, REL_PATHS['edge_datasets'])
     if not save_dir_parent.is_dir():
         Path.mkdir(save_dir_parent, parents=True)
 
@@ -126,59 +213,59 @@ def make_edge_chips(config):
     perfect_edge_name = 'perfect_edge.png'
     perfect_edge_save.save(Path(edge_dir, perfect_edge_name))
 
-    stds = []
-    kernel_sizes = []
-    for q in q_values:
-        std, k = get_blur_parameters(q, scale_factor)
-        stds.append(std)
-        kernel_sizes.append(k)
-
-    kernel_size = max(kernel_sizes)  # just go with the max kernel size
-    edge_buffer_left = np.floor(min(edge_indices - (kernel_size + 1)))
-    edge_buffer_left = int(np.floor(edge_buffer_left / scale_factor)) - 1
-    edge_buffer_right = np.ceil(max(edge_indices + (kernel_size + 1)))
-    edge_buffer_right = int(np.ceil(edge_buffer_right) / scale_factor) + 1
-    edge_buffer = min(edge_buffer_left, edge_buffer_right)
-    if edge_buffer < 10:
-        print(f'Warning: narrow edge buffer: {edge_buffer}')
-
     chips = {}
     edges = [perfect_edge_name]
 
-    for i, std in enumerate(stds):
+    for i, std in enumerate(native_stds):
+
+        kernel_size = get_kernel_size(std)
 
         blurred_edge = apply_optical_blur(perfect_edge, kernel_size, std)
-
         blurred_edge_save = convert_to_pil(blurred_edge)
         blurred_edge_name = f'blurred_edge_{i}.png'
         blurred_edge_save.save(Path(edge_dir, blurred_edge_name))
         edges.append(blurred_edge_name)
 
-        chip = p2_downsample(blurred_edge, scale_factor)
-        chip = convert_to_pil(chip)
-        chip_name = f'chip_{i}.png'
-        chips[chip_name] = {
-            'native_blur': q_values[i],
-            'edge_buffer': edge_buffer,
-            'parents': [perfect_edge_name, blurred_edge_name]
-        }
-        chip.save(Path(chip_dir, chip_name))
+        for j, down_sample_factor in enumerate(down_sample_ratios):
 
-    perfect_edge_chip = p2_downsample(perfect_edge, scale_factor)
-    perfect_edge_chip = convert_to_pil(perfect_edge_chip)
-    perfect_edge_chip_name = 'perfect_edge_chip.png'
-    chips[perfect_edge_chip_name] = {
-        'native_blur': 0,
-        'edge_buffer': edge_buffer,
-        'parents': [perfect_edge_name]
-    }
-    perfect_edge_chip.save(Path(chip_dir, perfect_edge_chip_name))
+            if i == 0:
+
+                perfect_edge_chip, chip_size = integer_downsample(perfect_edge, down_sample_factor)
+                edge_buffer = check_edge_buffer(edge_indices, kernel_size, down_sample_factor, chip_size)
+
+                perfect_edge_chip = convert_to_pil(perfect_edge_chip)
+                perfect_edge_chip_name = 'perfect_edge_chip.png'
+                chips[perfect_edge_chip_name] = {
+                    'native_blur': 0,
+                    'native_blur_kernel_size': None,
+                    'scaled_blur': 0,
+                    'down_sample_factor': down_sample_factor,
+                    'edge_buffer': edge_buffer,
+                    'parents': [perfect_edge_name]
+                }
+                perfect_edge_chip.save(Path(chip_dir, perfect_edge_chip_name))
+
+            scaled_std = std / down_sample_factor
+
+            chip, chip_size = integer_downsample(blurred_edge, down_sample_factor)
+            edge_buffer = check_edge_buffer(edge_indices, kernel_size, down_sample_factor, chip_size)
+            
+            chip = convert_to_pil(chip)
+            chip_name = f'chip_{i}_{j}.png'
+            chips[chip_name] = {
+                'native_blur': std,
+                'native_blur_kernel_size': kernel_size,
+                'scaled_blur': scaled_std,
+                'down_sample_factor': down_sample_factor,
+                'edge_buffer': edge_buffer,
+                'parents': [perfect_edge_name, blurred_edge_name]
+            }
+            chip.save(Path(chip_dir, chip_name))
 
     metadata = {
         'image_size': edge_image_size,
-        'scale_factor': scale_factor,
-        'q_values': q_values,
-        'half_step': half_step
+        'down_sample_ratios': down_sample_ratios,
+        'native_stds': native_stds,
     }
 
     dataset = {
@@ -200,7 +287,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_name', default='chip_config.yml', help='config filename to be used')
     parser.add_argument('--config_dir',
-                        default=Path(Path(__file__).parents[0], 'chip_configs'),
+                        default=Path(ROOT_DIR, 'rer', 'chip_configs'),
                         help="configuration file directory")
     args_passed = parser.parse_args()
     run_config = functions.get_config(args_passed)
