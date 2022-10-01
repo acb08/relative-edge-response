@@ -216,7 +216,7 @@ def plot_measured_predicted_rer(edge_props, blur_lower_bound=None, blur_upper_bo
 
 if __name__ == '__main__':
 
-    _directory_key = '0003'
+    _directory_key = '0004'
     _directory, _dataset = load_dataset(_directory_key)
     _mtf_lsf_data = load_measured_mtf_lsf(_directory)
     _output_dir = Path(_directory, 'rer_assessment')
@@ -231,6 +231,8 @@ if __name__ == '__main__':
                                 plot_model_unadjusted=True, plot_ideal_adjusted=True, plot_ideal_unadjusted=True)
     plot_measured_predicted_rer(_edge_props, blur_lower_bound=0.15, blur_upper_bound=1.5, output_dir=_output_dir,
                                 plot_model_unadjusted=True, plot_ideal_adjusted=True, plot_ideal_unadjusted=True)
+    plot_measured_predicted_rer(_edge_props, output_dir=_output_dir,
+                                plot_model_unadjusted=True, plot_ideal_adjusted=False, plot_ideal_unadjusted=False)
 
     # _scaled_blur = _edge_props.scaled_blur
     # _corrected_blur = apply_lorentz_correction(_scaled_blur)
