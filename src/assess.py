@@ -65,22 +65,8 @@ class BlurredEdgeProperties(object):
 
         return scale_sorted_vector_data
 
-    # def fixed_native_blur_vector_pair(self, native_blur_value, key_0='std', key_1='rer'):
-    #     return self.scale_sorted_vector_data[native_blur_value][key_0], self.scale_sorted_vector_data[native_blur_value][key_1]
-    #
-    # def get_distortion_performance_arrays(self, native_blur, start_idx=0):
-    #
-    #     blur, rer = self.fixed_native_blur_vector_pair(native_blur, key_0='std', key_1='rer')
-    #     native_blur_vector = native_blur * np.ones_like(blur)
-    #
-    #     distortion_array = np.zeros((len(native_blur_vector), 2))
-    #     distortion_array[:, 0] = native_blur_vector
-    #     distortion_array[:, 1] = blur
-    #
-    #     distortion_array = distortion_array[start_idx:, :]
-    #     rer = rer[start_idx:]
-    #
-    #     return distortion_array, rer
+    def parse_by_downsample_ratio(self):
+        pass
 
 
 def load_measured_mtf_lsf(directory):
@@ -112,9 +98,20 @@ def rer_multi_plot(edge_properties, start_idx=0, directory=None):
 # def ideal_rer(sigma_blur):
 #     return 1 / (sigma_blur * np.sqrt(2 * np.pi))
 
-def ideal_rer(sigma_blur):
-    # (erf(1 / (2 * np.sqrt(2) * sigma_blur)) - erf(- 1 / (2 * np.sqrt(2) * sigma_blur))
-    return erf(1 / (2 * np.sqrt(2) * sigma_blur))
+def discrete_sampling_rer_model(sigma_blur, apply_blur_correction=True):
+    if apply_blur_correction:
+        corrected_blur = apply_lorentz_correction(sigma_blur)
+        return erf(1 / (2 * np.sqrt(2) * corrected_blur))
+    else:
+        return erf(1 / (2 * np.sqrt(2) * sigma_blur))
+
+
+def rer_ideal_slope(sigma_blur, apply_blur_correction=True):
+    if apply_blur_correction:
+        corrected_blur = apply_lorentz_correction(sigma_blur)
+        return 1 / (corrected_blur * np.sqrt(2 * np.pi))
+    else:
+        return 1 / (sigma_blur * np.sqrt(2 * np.pi))
 
 
 def rer_fit_multi_plot(edge_properties, start_idx=0, fit_key='rer_0', directory=None):
@@ -167,21 +164,53 @@ def fit_predict_blur_rer(edge_properties, native_blur, fit_key, start_idx=0):
     return fit_coefficients, fit_prediction, correlation
 
 
-def rer_predict_measured_plot(rer_measured, rer_predicted, scaled_blur, blur_lower_bound=None, blur_upper_bound=None):
+def plot_measured_predicted_rer(edge_props, blur_lower_bound=None, blur_upper_bound=None, output_dir=None,
+                                plot_model_unadjusted=False, plot_ideal_adjusted=False, plot_ideal_unadjusted=False):
 
     if not blur_lower_bound:
         blur_lower_bound = -np.inf
     if not blur_upper_bound:
         blur_upper_bound = np.inf
 
-    keep_indices = np.where(blur_lower_bound <= scaled_blur <= blur_upper_bound)
-    rer_measured_plot = rer_measured[keep_indices]
-    rer_predicted_plot = rer_predicted[keep_indices]
-    scaled_blur_plot = scaled_blur[keep_indices]
+    scaled_blur = edge_props.scaled_blur
+    rer = edge_props.rer
 
+    bounded_indices = tuple([(scaled_blur >= blur_lower_bound) & (scaled_blur <= blur_upper_bound)])
+    scaled_blur = scaled_blur[bounded_indices]
+    rer = rer[bounded_indices]
+
+    blur_plot = np.linspace(np.min(scaled_blur), np.max(scaled_blur), num=128)
+    rer_predicted = discrete_sampling_rer_model(blur_plot, apply_blur_correction=True)
+    rer_predicted_unadjusted_blur = discrete_sampling_rer_model(blur_plot, apply_blur_correction=False)
+    rer_ideal_adjusted_blur = rer_ideal_slope(blur_plot, apply_blur_correction=True)
+    rer_ideal_unadjusted_blur = rer_ideal_slope(blur_plot, apply_blur_correction=False)
+
+    # keep_indices = np.where(blur_lower_bound <= scaled_blur <= blur_upper_bound)
+    # rer = rer[keep_indices]
+    # scaled_blur = scaled_blur[keep_indices]
+
+    name_seed = 'rer_v_blur'
+    if blur_lower_bound:
+        name_seed = f'{name_seed}_{str(round(blur_lower_bound, 2)).replace(".", "p")}'
+    if blur_upper_bound:
+        name_seed = f'{name_seed}_{str(round(blur_upper_bound, 2)).replace(".", "p")}'
     plt.figure()
-    plt.scatter(scaled_blur_plot, rer_measured_plot)
-    plt.plot(scaled_blur_plot, rer_predicted_plot)
+    plt.scatter(scaled_blur, rer, label='measured', marker='+')
+    plt.plot(blur_plot, rer_predicted, label='modeled')
+    if plot_model_unadjusted:
+        name_seed = f'{name_seed}_mu'
+        plt.plot(blur_plot, rer_predicted_unadjusted_blur, label='modeled, uncorrected')
+    if plot_ideal_adjusted:
+        name_seed = f'{name_seed}_ia'
+        plt.plot(blur_plot, rer_ideal_adjusted_blur, label='ideal slope model, corrected')
+    if plot_ideal_unadjusted:
+        name_seed = f'{name_seed}_iu'
+        plt.plot(blur_plot, rer_ideal_unadjusted_blur, label='ideal slope model, uncorrected')
+    plt.legend()
+    plt.xlabel(r'$\sigma_{blur}$ (pixels)')
+    plt.ylabel('RER')
+    if output_dir:
+        plt.savefig(Path(output_dir, f'{name_seed}.png'))
     plt.show()
 
 
@@ -190,26 +219,39 @@ if __name__ == '__main__':
     _directory_key = '0003'
     _directory, _dataset = load_dataset(_directory_key)
     _mtf_lsf_data = load_measured_mtf_lsf(_directory)
+    _output_dir = Path(_directory, 'rer_assessment')
+    if not _output_dir.is_dir():
+        Path.mkdir(_output_dir)
 
     _edge_props = get_edge_blur_properties(_dataset, _mtf_lsf_data)
 
-    _scaled_blur = _edge_props.scaled_blur
-    _corrected_blur = apply_lorentz_correction(_scaled_blur)
-    _rer = _edge_props.rer
+    plot_measured_predicted_rer(_edge_props, blur_lower_bound=0.75, blur_upper_bound=5, output_dir=_output_dir,
+                                plot_model_unadjusted=True, plot_ideal_adjusted=True, plot_ideal_unadjusted=True)
+    plot_measured_predicted_rer(_edge_props, output_dir=_output_dir,
+                                plot_model_unadjusted=True, plot_ideal_adjusted=True, plot_ideal_unadjusted=True)
+    plot_measured_predicted_rer(_edge_props, blur_lower_bound=0.15, blur_upper_bound=1.5, output_dir=_output_dir,
+                                plot_model_unadjusted=True, plot_ideal_adjusted=True, plot_ideal_unadjusted=True)
 
-    _rer_ideal = ideal_rer(np.unique(_corrected_blur))
+    # _scaled_blur = _edge_props.scaled_blur
+    # _corrected_blur = apply_lorentz_correction(_scaled_blur)
+    # _rer = _edge_props.rer
+    #
+    # _scaled_blur_plot = np.linspace(np.min(_scaled_blur), np.max(_scaled_blur), num=100)
+    # _rer_ideal, _rer_manually_tuned_correction = ideal_rer(_scaled_blur_plot)
 
-    plt.figure()
-    plt.scatter(_scaled_blur, _rer)
-    plt.plot(np.unique(_scaled_blur), _rer_ideal)
-    plt.show()
+    # plt.figure()
+    # plt.scatter(_scaled_blur, _rer)
+    # plt.plot(np.unique(_scaled_blur), _rer_ideal)
+    # plt.show()
 
-    _scaled_blur_plot = np.unique(_scaled_blur)
+    # _scaled_blur_plot = np.unique(_scaled_blur)
 
-    plt.figure()
-    plt.scatter(_scaled_blur[np.where(_scaled_blur < 1)], _rer[np.where(_scaled_blur < 1)])
-    plt.plot(_scaled_blur_plot[np.where(_scaled_blur_plot < 1)], _rer_ideal[np.where(_scaled_blur_plot < 1)])
-    plt.show()
+    # plt.figure()
+    # plt.scatter(_scaled_blur, _rer)
+    # plt.plot(_scaled_blur_plot, _rer_ideal)
+    # plt.show()
+
+
     # rer_multi_plot(_edge_props, directory=_directory)
 
     # _start_idx = 4

@@ -46,12 +46,17 @@ def lorentz_fit(x, y, initial_params=(1, 1)):
     return fit_params, lorentz(fit_params, x)
 
 
-def apply_lorentz_correction(sigma):
+def apply_lorentz_correction(sigma, cosmological_constant=1):
     """
     Nothing to do with time dilation or length contraction :(
+
+    Using the correction as fit, the correction allows accurate modeling of RER down to blur standard deviations of
+    roughly 0.25 pixels. If we decrease the correction by approximately 25% (i.e. set our cosmological constant to
+    0.75), then the fit holds much lower, although
+    its meaning is dubious since the combined transfer function is decided non-Gaussian by this point.
     """
     correction = lorentz(definitions.LORENTZ_TERMS, sigma)
-    return sigma + correction
+    return sigma + cosmological_constant * correction
 
 
 if __name__ == '__main__':
