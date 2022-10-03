@@ -8,6 +8,7 @@ from pathlib import Path
 import json
 import argparse
 import src.functions as functions
+from scipy.signal import convolve2d
 
 
 def check_edge_buffer(edge_indices, kernel_size, down_sample_factor, chip_size):
@@ -130,7 +131,7 @@ def get_kernel_size(std):
     return 8 * int(np.round(std, 0)) + 1
 
 
-def apply_optical_blur(edge_image, kernel_size, sigma):
+def apply_gaussian_blur(edge_image, kernel_size, sigma):
 
     edge_image = torch.tensor(edge_image, requires_grad=False)
     edge_image = torch.unsqueeze(edge_image, dim=0)
@@ -141,10 +142,21 @@ def apply_optical_blur(edge_image, kernel_size, sigma):
     return edge_image
 
 
+def apply_optical_blur(edge_image, kernel):
+
+    pad_width = np.shape(kernel)[0] // 2
+    if np.abs(np.sum(kernel) - 1) > 1e-6:
+        raise ValueError('kernel must be normalized')
+    edge_image = convolve2d(edge_image, kernel, boundary='symm')
+    edge_image = edge_image[pad_width:-pad_width, pad_width:-pad_width]
+
+    return edge_image
+
+
 def integer_downsample(image, downsample_step_size):
     """
-    Performs an interpolation-free down sampling by combining n-by-n pixel regions to form new a new downscaled image,
-    where n must be an integer
+    Performs an interpolation-free down sampling by combining n-by-n pixel blocks to form new a new downscaled image,
+    where n must be an integer.
     """
 
     if np.max(image) > 1 or np.min(image) < 0:
@@ -220,7 +232,7 @@ def make_edge_chips(config):
 
         kernel_size = get_kernel_size(std)
 
-        blurred_edge = apply_optical_blur(perfect_edge, kernel_size, std)
+        blurred_edge = apply_gaussian_blur(perfect_edge, kernel_size, std)
         blurred_edge_save = convert_to_pil(blurred_edge)
         blurred_edge_name = f'blurred_edge_{i}.png'
         blurred_edge_save.save(Path(edge_dir, blurred_edge_name))

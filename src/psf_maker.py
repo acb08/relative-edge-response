@@ -11,7 +11,7 @@ from scipy import interpolate
 import matplotlib.pyplot as plt
 
 
-class Fourier(object):
+class PSF(object):
     
     def __init__(self, num_samples, f_num, pix_pitch, ff, wl):
         
@@ -279,7 +279,7 @@ class Fourier(object):
 
 if __name__ == '__main__':
 
-    model = Fourier(2**11, 14.55, 32, 0.8631, 0.912)
+    model = PSF(2 ** 11, 14.55, 32, 0.8631, 0.912)
     model.scaling()
     model.mtf_aperture()
     model.mtf_system(0.1,0.1,0.1,0.1)
