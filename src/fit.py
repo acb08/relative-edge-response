@@ -31,7 +31,7 @@ def gaussian_fourier_space_1d(params, x):
 
 def gaussian2d(params, r):
     sigma = params[0]
-    return (1 / (2 * np.pi * sigma ** 2)) * np.exp(- (r / sigma) ** 2)
+    return (1 / (2 * np.pi * sigma ** 2)) * np.exp(-0.5 * (r / sigma) ** 2)
 
 
 def _noisy_line(m, b, x, sigma=0.1):
@@ -82,13 +82,13 @@ if __name__ == '__main__':
     # _data = _noisy_gaussian1d([_sigma], _x, noise_strength=0)
     # _best_fit = Fitter(_x, _data, gaussian_fourier_space_1d, _initial_params).fit()
 
-    _size = 15
-    _sigma = 2
+    _size = 91
+    _sigma = 3
     _test_kernel = _noisy_gauss_test_kernel(_sigma, _size, 0.001)
-    _sigma_hat, _approx_kerel = nearest_gaussian_psf(_test_kernel)
+    _sigma_hat, _approx_kernel = nearest_gaussian_psf(_test_kernel)
     print(np.sum(_test_kernel))
     # _test_kernel = _test_kernel / np.sum(_test_kernel)
-    print(np.sum(_approx_kerel))
+    print(np.sum(_approx_kernel))
 
 
 

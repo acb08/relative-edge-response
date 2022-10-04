@@ -48,7 +48,7 @@ class PSF(object):
         self.ensqared_energy = None
         self.dxi = None
         self.uprf = None  # what does the "u" stand for?
-        self.mtf_kernel = None  # blur kernel derived form the system mtf?
+        self.mtf_kernel = None  # blur kernel derived from the system mtf?
         self.sys_aperture = None
         self.cal_scale = None
         self.zero = None
@@ -134,7 +134,7 @@ class PSF(object):
     
     def create_freq(self, dx):
         df = (1 / (dx * self.num_samples))
-        fx = np.arange(-(1/(2*dx)),(1/(2*dx)),df)
+        fx = np.arange(-(1/(2*dx)), (1/(2*dx)), df)
         return fx
     
     def create_spat(self,dx):
@@ -223,7 +223,7 @@ class PSF(object):
         self.jitter = self.mtf_jitter(sigma_j)
         self.mtf_sys = self.aperture_mtf * self.det_tf * self.wfe * self.smear * self.jitter
         self.mtf_kernel = self.aperture_mtf * self.wfe * self.smear * self.jitter
-        self.prf = self.mtf2prf(self.mtf_sys) ####### needs to be mtf_sys, testing mtf_kernel
+        self.prf = self.mtf2prf(self.mtf_sys)  ####### needs to be mtf_sys, testing mtf_kernel
         self.optical_psf = self.mtf2prf(self.mtf_kernel)
     
     def interp_prf(self, size):
@@ -257,13 +257,13 @@ class PSF(object):
             uprf = np.array([self.intp_prf[sx, sy]])  # Samples PRF
         else:
             uprf_set = []
-            #fact = 1/(sub_sample+1)
-            #sub_set = np.linspace(-(0.5-fact),0.5-fact,sub_sample)
+            # fact = 1/(sub_sample+1)
+            # sub_set = np.linspace(-(0.5-fact),0.5-fact,sub_sample)
             # Generates a 1D array of random shift (-0.5 to 0.5 pixels)
             sub_set = np.random.rand(sub_sample) - 0.5
-            subx, suby = np.meshgrid(sub_set,sub_set) # Creates 2D arrary for all x,y pairs of sub-pixel shifts
+            subx, suby = np.meshgrid(sub_set, sub_set) # Creates 2D arrary for all x,y pairs of sub-pixel shifts
             # Unravels 2D x,y pairs and converts to index shifts
-            subx, suby = np.int64(np.round(subx.ravel()/self.dxi)),-1*np.int64(np.round(suby.ravel()/self.dxi))
+            subx, suby = np.int64(np.round(subx.ravel() / self.dxi)), -np.int64(np.round(suby.ravel() / self.dxi))
             # Loops through sub-pixel index shifts and appends to a list to be returned
             for i in range(len(subx)):
                 sx, sy = np.meshgrid(samples-subx[i],samples-suby[i]) # 2D sample grid
@@ -274,7 +274,7 @@ class PSF(object):
         # Find the total area under a single uprf or multiple uprfs
         total = uprf.reshape(dim, row*cols).sum(axis=-1)[:, None, None] # dimension (dim,1,1) for division
         # Reintroduce missing energy when cropping in interpolation function (interp_prf)
-        self.uprf = (uprf/total)*self.ensqared_energy # saves uprf in Class init function
+        self.uprf = (uprf / total) * self.ensqared_energy # saves uprf in Class init function
 
 
 if __name__ == '__main__':
@@ -286,24 +286,24 @@ if __name__ == '__main__':
     model.interp_prf(size=7)
     model.create_uprf()
 
-plt.plot(model.fn, model.mtf_sys[model.num_samples // 2, :])
-plt.plot(model.fn, model.det_tf[model.num_samples // 2, :])
-plt.xlim(0, 1)
-plt.ylim(0, 1.01)
+    plt.plot(model.fn, model.mtf_sys[model.num_samples // 2, :])
+    plt.plot(model.fn, model.det_tf[model.num_samples // 2, :])
+    plt.xlim(0, 1)
+    plt.ylim(0, 1.01)
 
-plt.figure(figsize=(12,10))
-plt.plot(model.fn, model.aperture_mtf[model.num_samples // 2, :], label='Aperture')
-plt.plot(model.fn, model.det_tf[model.num_samples // 2, :], label='Detector')
-plt.plot(model.fn, model.wfe[model.num_samples // 2, :], label='WFE')
-plt.plot(model.fn, model.jitter[model.num_samples // 2, :], label='Jitter')
-plt.plot(model.fn, model.smear[model.num_samples // 2, :], label='Smear')
-plt.plot(model.fn, model.mtf_kernel[model.num_samples // 2, :], label='Kernel')
-plt.plot(model.fn, model.mtf_sys[model.num_samples // 2, :], label='System')
-plt.title('MTF Models',fontsize=18)
-plt.xlabel('Normalized Frequency [cyc/pixel]',fontsize=14)
-plt.ylabel('Magnitude',fontsize=14)
-plt.legend(prop={'size': 12})
-plt.xlim(0, 1.0)
-plt.ylim(0, 1.01)
+    plt.figure(figsize=(12,10))
+    plt.plot(model.fn, model.aperture_mtf[model.num_samples // 2, :], label='Aperture')
+    plt.plot(model.fn, model.det_tf[model.num_samples // 2, :], label='Detector')
+    plt.plot(model.fn, model.wfe[model.num_samples // 2, :], label='WFE')
+    plt.plot(model.fn, model.jitter[model.num_samples // 2, :], label='Jitter')
+    plt.plot(model.fn, model.smear[model.num_samples // 2, :], label='Smear')
+    plt.plot(model.fn, model.mtf_kernel[model.num_samples // 2, :], label='Kernel')
+    plt.plot(model.fn, model.mtf_sys[model.num_samples // 2, :], label='System')
+    plt.title('MTF Models',fontsize=18)
+    plt.xlabel('Normalized Frequency [cyc/pixel]',fontsize=14)
+    plt.ylabel('Magnitude',fontsize=14)
+    plt.legend(prop={'size': 12})
+    plt.xlim(0, 1.0)
+    plt.ylim(0, 1.01)
 
-plt.show()
+    plt.show()
