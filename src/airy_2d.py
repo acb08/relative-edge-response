@@ -1,5 +1,5 @@
 import numpy as np
-
+import scipy.special
 
 def get_xy_plane(n, width):
 
@@ -24,6 +24,26 @@ def get_polar_coordinates(xx, yy):
     theta = np.arctan(atan_arg)
 
     return r, theta
+
+
+def airy_psf(r, d_ap, wavelength, f):
+
+    """
+    Calculated 2d incoherent 2d diffraction pattern of a circular aperture of diameter d and focal length f
+    at a specific wavelength
+
+    :param r: focal plane radial distance in polar coordinates (meters)
+    :param d_ap: aperture diameter (meters)
+    :param wavelength: wavelength (meters)
+    :param f: focal length (meters)
+    :return: 2d airy psf
+    """
+
+    psf = scipy.special.jv(1, np.pi * d_ap * r / (wavelength * f))
+    psf = (d_ap / (4 * r)) * psf
+    psf = psf ** 2
+
+    return psf
 
 
 if __name__ == '__main__':

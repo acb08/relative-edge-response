@@ -1,4 +1,4 @@
 ---
 
 native_stds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
-down_sample_ratios: [4]
+down_sample_ratios: [4, 5, 6, 8]

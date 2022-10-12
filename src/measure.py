@@ -175,9 +175,9 @@ def estimate_mtf(chip, plot=False):
     return mtf, esf, oversample_factor
 
 
-def measure_props(dataset, directory, plot=False, chip_sub_directory=REL_PATHS['edge_chips']):
+def measure_props(dataset, directory, chip_data_key='chips', plot=False, chip_sub_directory=REL_PATHS['edge_chips']):
 
-    blurred_chip_data = dataset['chips']
+    blurred_chip_data = dataset[chip_data_key]
 
     output_dir = Path(directory, 'mtf_plots')
     if plot and not output_dir.is_dir():
@@ -271,8 +271,7 @@ def normed_circ_ap_mtf(f, f_cut=None):
 
 if __name__ == '__main__':
 
-    _directory_key = '0004'
-    # _kernel_size = 31
+    _directory_key = '0019'
     _directory, _dataset = load_dataset(_directory_key)
 
     _properties = measure_props(_dataset, _directory, plot=False)

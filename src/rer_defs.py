@@ -1,4 +1,4 @@
-pre_sample_size = 2048
+pre_sample_size = 512
 angle = 2
 lam_black_reflectance = 0
 lam_white_reflectance = 0.9

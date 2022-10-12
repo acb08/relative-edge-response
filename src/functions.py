@@ -249,11 +249,9 @@ def read_json_artifact(directory, filename):
     return data
 
 
-# def load_npz_data(directory, filename):
-#
-#     data = np.load(Path(directory, filename))
-#
-#     return data
+def load_npz_data(directory, filename):
+    data = np.load(Path(directory, filename))
+    return data
 #
 #
 # def load_data_vectors(shard_id, directory):

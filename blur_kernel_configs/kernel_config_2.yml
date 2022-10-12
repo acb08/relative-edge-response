@@ -1,0 +1,15 @@
+---
+
+num_samples: 2048
+f_num: 14.55  # dimensionless
+pix_pitch: 8  # microns
+ff: 0.8631  # dimensionless
+wl: 0.912  # microns
+
+kernel_half_width: 7
+num_kernels: 64
+
+p_smear_range: [0.05, 1.15]
+sigma_jitter_range: [0.05, 0.15]
+wl_rms_range: [0.05, 0.15]
+l_corr_range: [0.05, 0.15]

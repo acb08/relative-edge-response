@@ -16,6 +16,7 @@ to local image files.
 ROOT_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), '../..'))
 
 STANDARD_DATASET_FILENAME = 'dataset.json'
+STANDARD_BLUR_KERNEL_FILENAME_STEM = 'blur_kernel'
 # STANDARD_CHECKPOINT_FILENAME = 'model_cp.pt'
 # STANDARD_BEST_LOSS_FILENAME = 'best_loss.pt'
 # STANDARD_TEST_RESULT_FILENAME = 'test_result.json'
@@ -33,6 +34,7 @@ LORENTZ_TERMS = (0.2630388847587775, -0.4590111280646474)  # correction for Gaus
 REL_PATHS = {
     'edge_datasets': 'edge_datasets',
     'transfer_function': 'transfer_function',
+    'blur_kernels': 'blur_kernels',
     
     
     'train_dataset': r'datasets/train',
