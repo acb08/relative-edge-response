@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from PIL import Image
 import scipy.stats as stats
 from pathlib import Path
-from src.definitions import ROOT_DIR, REL_PATHS, STANDARD_DATASET_FILENAME
+from rer.definitions import ROOT_DIR, REL_PATHS, STANDARD_DATASET_FILENAME
 import json
 
 

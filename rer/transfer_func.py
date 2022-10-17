@@ -5,10 +5,10 @@ kernel with a rectangular pixel.
 
 import numpy as np
 import matplotlib.pyplot as plt
-from src.fit import Fitter
-import src.definitions as definitions
+from rer.fit import Fitter
+import rer.definitions as definitions
 from pathlib import Path
-import src.functions as functions
+import rer.functions as functions
 
 
 def gauss_xfer(params, xi):

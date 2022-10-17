@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
-from src.measure import load_dataset
+from rer.measure import load_dataset
 import json
 from scipy.special import erf
 from transfer_func import apply_lorentz_correction

@@ -3,10 +3,10 @@ Generates blur kernel sets using ParametricSysModel class in sys_psf.py
 """
 
 import numpy as np
-from src.sys_psf import ParametricSysModel
-from src.definitions import ROOT_DIR, REL_PATHS, STANDARD_BLUR_KERNEL_FILENAME_STEM
+from rer.sys_psf import ParametricSysModel
+from rer.definitions import ROOT_DIR, REL_PATHS, STANDARD_BLUR_KERNEL_FILENAME_STEM
 from pathlib import Path
-import src.functions as functions
+import rer.functions as functions
 import argparse
 
 DEFAULT_RNG = np.random.default_rng()

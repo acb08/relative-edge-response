@@ -5,16 +5,16 @@ edge chips
 
 from PIL import Image
 import numpy as np
-import src.rer_defs as rer_defs
+import rer.rer_defs as rer_defs
 import torch
 import torchvision.transforms as transforms
-from src.definitions import ROOT_DIR, REL_PATHS, STANDARD_DATASET_FILENAME
+from rer.definitions import ROOT_DIR, REL_PATHS, STANDARD_DATASET_FILENAME
 from pathlib import Path
 import json
 import argparse
-import src.functions as functions
+import rer.functions as functions
 from scipy.signal import convolve2d
-import src.fit as fit
+import rer.fit as fit
 
 
 def check_edge_buffer(edge_indices, kernel_size, down_sample_factor, chip_size):

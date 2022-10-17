@@ -2,7 +2,7 @@
 Miscellaneous functions for data loading/logging
 """
 
-from src.definitions import ROOT_DIR, REL_PATHS, KEY_LENGTH, STANDARD_CONFIG_USED_FILENAME
+from rer.definitions import ROOT_DIR, REL_PATHS, KEY_LENGTH, STANDARD_CONFIG_USED_FILENAME
 import json
 from pathlib import Path
 from yaml import safe_load, dump
