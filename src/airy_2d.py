@@ -1,8 +1,11 @@
+"""
+Mostly a sandbox playing with diffraction limited PSFs
+"""
+
 import numpy as np
 import scipy.special
 import matplotlib.pyplot as plt
 from src.fit import nearest_gaussian_psf
-import src.functions as functions
 
 
 def get_xy_plane(n, p=1.0):

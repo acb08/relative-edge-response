@@ -3,32 +3,11 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from src.measure import load_dataset
 import json
-import src._fit as fit
 from scipy.special import erf
 from transfer_func import apply_lorentz_correction
 
 
-MARKERS = [
-    "+",
-    "v",
-    "^",
-    "<",
-    '>',
-    "1",
-    "2",
-    "3",
-    "4",
-    "s",
-    "p",
-    "P",
-    "*",
-    "h",
-    ".",
-    "x",
-    "X",
-    "D",
-    "d",
-]
+MARKERS = ["+", "v", "^", "<", '>', "1", "2", "3", "4", "s", "p", "P", "*", "h", ".", "x", "X", "D", "d"]
 
 
 class BlurredEdgeProperties(object):
@@ -108,12 +87,6 @@ class BlurredEdgeProperties(object):
 
         return optical_rer, gaussian_equiv_rer
 
-    # def rer_filtered(self, optical=True):
-    #     if optical:
-    #         return self.rer[tuple([self.optical_bool_vec])]
-    #     else:
-    #         return self.rer[tuple([np.invert(self.optical_bool_vec)])]
-
     def attribute_filtered(self, attribute, opt_or_gauss):
 
         acceptable_attributes = {'rer', 'native_blur', 'scaled_blur', 'down_sample_factor'}
@@ -141,25 +114,6 @@ def get_edge_blur_properties(dataset, mtf_lsf_data):
     return BlurredEdgeProperties(dataset, mtf_lsf_data)
 
 
-def rer_multi_plot(edge_properties, start_idx=0, directory=None):
-
-    plt.figure()
-    for blur_val in edge_properties.native_blur_values:
-        std, rer = edge_properties.fixed_native_blur_vector_pair(blur_val, key_0='std', key_1='rer')
-        plt.plot(std[start_idx:], rer[start_idx:], label=f'native blur: {blur_val} (pixels)')
-    plt.xlabel(r'$\sigma_{blur}$ secondary (pixels)')
-    plt.ylabel('RER')
-    plt.legend()
-    if directory:
-        save_name = f'rer_multi_plot_st-idx-{start_idx}.png'
-        plt.savefig(Path(directory, save_name))
-    else:
-        plt.show()
-
-
-# def ideal_rer(sigma_blur):
-#     return 1 / (sigma_blur * np.sqrt(2 * np.pi))
-
 def discrete_sampling_rer_model(sigma_blur, apply_blur_correction=True):
     if apply_blur_correction:
         corrected_blur = apply_lorentz_correction(sigma_blur)
@@ -174,56 +128,6 @@ def rer_ideal_slope(sigma_blur, apply_blur_correction=True):
         return 1 / (corrected_blur * np.sqrt(2 * np.pi))
     else:
         return 1 / (sigma_blur * np.sqrt(2 * np.pi))
-
-
-def rer_fit_multi_plot(edge_properties, start_idx=0, fit_key='rer_0', directory=None):
-
-    if directory:
-        sub_dir = Path(directory, f'{fit_key}-st-idx-{start_idx}')
-        if not sub_dir.is_dir():
-            Path.mkdir(sub_dir)
-        log_file = open(Path(sub_dir, 'fit_log.txt'), 'w')
-    else:
-        log_file = None
-
-    for blur_val in edge_properties.native_blur_values:
-
-        std, rer = edge_properties.fixed_native_blur_vector_pair(blur_val, key_0='std', key_1='rer')
-        std = std[start_idx:]
-        rer = rer[start_idx:]
-        fit_coefficients, rer_fit, correlation = fit_predict_blur_rer(edge_properties, blur_val, fit_key,
-                                                                      start_idx=start_idx)
-        plt.figure()
-        plt.scatter(std, rer, label=f'native blur: {blur_val} (pixels)')
-        plt.plot(std, rer_fit, label=f'fit {fit_key}')
-        plt.xlabel(r'$\sigma_{blur}$ secondary (pixels)')
-        plt.ylabel('RER')
-        plt.legend()
-        if directory:
-            blur_val_str = str(blur_val).replace('.', '-')
-            save_name = f'rer_fit_{blur_val_str}.png'
-            plt.savefig(Path(sub_dir, save_name))
-            plt.close()
-        else:
-            plt.show()
-
-        print(f'native blur {blur_val} {fit_key} fit coefficients: ', file=log_file)
-        print(f'{fit_coefficients}: ', file=log_file)
-        print(f'correlation: {correlation} \n', file=log_file)
-
-    if log_file:
-        log_file.close()
-
-
-def fit_predict_blur_rer(edge_properties, native_blur, fit_key, start_idx=0):
-
-    distortion_array, rer_vector = edge_properties.get_distortion_performance_arrays(native_blur,
-                                                                                     start_idx=start_idx)
-    fit_coefficients = fit.fit(distortion_array, rer_vector, fit_key=fit_key)
-    fit_prediction = fit.apply_fit(fit_coefficients, distortion_array, fit_key=fit_key, add_bias=None)
-    correlation = fit.evaluate_fit(fit_coefficients, distortion_array, rer_vector, fit_key=fit_key)
-
-    return fit_coefficients, fit_prediction, correlation
 
 
 def plot_measured_predicted_rer(edge_props,
@@ -383,5 +287,5 @@ if __name__ == '__main__':
                                 scaled_blur_lower_bound=0.05, scaled_blur_upper_bound=1,
                                 plot_model_adjusted=True)
 
-    # optical_gauss_compare(_edge_props)
+    optical_gauss_compare(_edge_props)
 

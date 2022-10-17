@@ -1,3 +1,8 @@
+"""
+Used to estimate the approximation Gaussian combined transfer function that results from convolution of a Gaussian blur
+kernel with a rectangular pixel.
+"""
+
 import numpy as np
 import matplotlib.pyplot as plt
 from src.fit import Fitter
@@ -51,9 +56,7 @@ def apply_lorentz_correction(sigma, cosmological_constant=1):
     Nothing to do with time dilation or length contraction :(
 
     Using the correction as fit, the correction allows accurate modeling of RER down to blur standard deviations of
-    roughly 0.25 pixels. If we decrease the correction by approximately 25% (i.e. set our cosmological constant to
-    0.75), then the fit holds much lower, although
-    its meaning is dubious since the combined transfer function is decided non-Gaussian by this point.
+    roughly 0.25 pixels.
     """
     correction = lorentz(definitions.LORENTZ_TERMS, sigma)
     return sigma + cosmological_constant * correction

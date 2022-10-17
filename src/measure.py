@@ -1,3 +1,7 @@
+"""
+Uses the slanted edge method to measure RER (as well as MTF) of an image chip containing a single near-vertical edge
+"""
+
 import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
@@ -5,7 +9,6 @@ import scipy.stats as stats
 from pathlib import Path
 from src.definitions import ROOT_DIR, REL_PATHS, STANDARD_DATASET_FILENAME
 import json
-# from src.d06_chip_study.create_edge_chips import measure_snr
 
 
 def plot_rows(chip, interval=1):
@@ -253,25 +256,7 @@ def get_image_array(directory, name):
     return np.asarray(Image.open(Path(directory, name)))
 
 
-def normed_circ_ap_mtf(f, f_cut=None):
-    """
-    Calculates the diffraction mtf over frequency axis f for a circular aperture with optical cutoff frequency f_cut.
-    """
-    if not f_cut:
-        f_cut = max(f)
-    f = f / f_cut
-    mtf = np.zeros_like(f)
-    f_sub_cut = f[np.where(f <= 1)]
-    mtf_sub_cut = 2 / np.pi * (np.arccos(f_sub_cut) - f_sub_cut * np.sqrt(1 - f_sub_cut**2))
-    samples_sub_cut = len(mtf_sub_cut)
-    mtf[:samples_sub_cut] = mtf_sub_cut
-
-    return mtf
-
-
 if __name__ == '__main__':
-
-    # _directory_key = '0019'
 
     _directory_keys = ['0026']
 

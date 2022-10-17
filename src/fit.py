@@ -18,12 +18,6 @@ class Fitter(object):
         return leastsq(self.residuals, self.initial_params)[0]
 
 
-def line(params, x):
-    m = params[0]
-    b = params[1]
-    return m * x + b
-
-
 def gaussian_fourier_space_1d(params, x):
     sigma = params[0]
     return np.exp(- 2 * np.pi ** 2 * sigma ** 2 * x ** 2)
@@ -72,19 +66,12 @@ def get_2d_radial(n):
 
 if __name__ == '__main__':
 
-    # _x = np.linspace(-2, 2)
-    # _sigma = 1
-    # _initial_params = [0.5]
-    # _data = _noisy_gaussian1d([_sigma], _x, noise_strength=0)
-    # _best_fit = Fitter(_x, _data, gaussian_fourier_space_1d, _initial_params).fit()
-
+    # just some initial checkout code for some of the functions above
     _size = 91
     _sigma = 3
     _test_kernel = _noisy_gauss_test_kernel(_sigma, _size, 0.001)
     _sigma_hat, _approx_kernel = nearest_gaussian_psf(_test_kernel)
-    print(np.sum(_test_kernel))
-    # _test_kernel = _test_kernel / np.sum(_test_kernel)
-    print(np.sum(_approx_kernel))
+
 
 
 
