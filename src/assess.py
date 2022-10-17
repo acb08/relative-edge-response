@@ -9,7 +9,7 @@ from transfer_func import apply_lorentz_correction
 
 
 MARKERS = [
-    ".",
+    "+",
     "v",
     "^",
     "<",
@@ -23,7 +23,7 @@ MARKERS = [
     "P",
     "*",
     "h",
-    "+",
+    ".",
     "x",
     "X",
     "D",
@@ -230,6 +230,7 @@ def plot_measured_predicted_rer(edge_props,
                                 scaled_blur_lower_bound=None, scaled_blur_upper_bound=None,
                                 native_blur_lower_bound=None, native_blur_upper_bound=None,
                                 output_dir=None,
+                                plot_model_adjusted=True,
                                 plot_model_unadjusted=False, plot_ideal_adjusted=False, plot_ideal_unadjusted=False,
                                 distinguish_blur_type=True):
 
@@ -259,10 +260,6 @@ def plot_measured_predicted_rer(edge_props,
     rer_ideal_adjusted_blur = rer_ideal_slope(blur_plot, apply_blur_correction=True)
     rer_ideal_unadjusted_blur = rer_ideal_slope(blur_plot, apply_blur_correction=False)
 
-    # keep_indices = np.where(blur_lower_bound <= scaled_blur <= blur_upper_bound)
-    # rer = rer[keep_indices]
-    # scaled_blur = scaled_blur[keep_indices]
-
     name_seed = 'rer_v_blur'
     if scaled_blur_lower_bound:
         name_seed = f'{name_seed}_{str(round(scaled_blur_lower_bound, 2)).replace(".", "p")}'
@@ -271,40 +268,43 @@ def plot_measured_predicted_rer(edge_props,
 
     plt.figure()
 
-    if distinguish_blur_type:
-
-        scaled_blur_opt = edge_props.attribute_filtered('scaled_blur', 'optical')
-        rer_opt = edge_props.attribute_filtered('rer', 'optical')
-
-        scaled_blur_gauss = edge_props.attribute_filtered('scaled_blur', 'gaussian')
-        rer_gauss = edge_props.attribute_filtered('rer', 'gaussian')
-
-        plt.scatter(scaled_blur_opt, rer_opt, label='measured (optical)', marker=MARKERS[0])
-        plt.scatter(scaled_blur_gauss, rer_gauss, label='measured (gaussian approx)', marker=MARKERS[1])
-
-        # down_sample_factor = edge_props.down_sample_factor
-        # for i, down_sample_val in enumerate(np.unique(down_sample_factor)):
-        #     indices = tuple([down_sample_factor == down_sample_val])
-        #     num_markers = len(MARKERS)
-        #     offset, index = divmod(i, num_markers)
-        #     marker = MARKERS[index]
-        #     plt.scatter(scaled_blur[indices], rer[indices], label=f'measured, downsample={down_sample_val}',
-        #                 marker=marker)
-
-    else:
-        plt.scatter(scaled_blur, rer, label='measure', marker='+')
-
-    plt.plot(blur_plot, rer_predicted, label='modeled')
-
-    if plot_model_unadjusted:
-        name_seed = f'{name_seed}_mu'
-        plt.plot(blur_plot, rer_predicted_unadjusted_blur, label='modeled, uncorrected')
-    if plot_ideal_adjusted:
-        name_seed = f'{name_seed}_ia'
-        plt.plot(blur_plot, rer_ideal_adjusted_blur, label='ideal slope model, corrected')
     if plot_ideal_unadjusted:
         name_seed = f'{name_seed}_iu'
-        plt.plot(blur_plot, rer_ideal_unadjusted_blur, label='ideal slope model, uncorrected')
+        plt.plot(blur_plot, rer_ideal_unadjusted_blur,
+                 label=r'modeled, ideal edge slope-only',
+                 ls=':', color='k')  # ($\frac{1}{\sigma\sqrt{2 \pi}}$)
+    if plot_model_unadjusted:
+        name_seed = f'{name_seed}_mu'
+        plt.plot(blur_plot, rer_predicted_unadjusted_blur, label='modeled, discrete sampling included',
+                 ls='--', color='k')
+    if plot_ideal_adjusted:
+        name_seed = f'{name_seed}_ia'
+        plt.plot(blur_plot, rer_ideal_adjusted_blur, label='ideal slope model, corrected',
+                 ls='dashdot', color='k')
+
+    if plot_model_adjusted:
+        plt.plot(blur_plot, rer_predicted, label=r'modeled, $\sigma_{blur}$ corrected',
+                 ls='solid', color='k')
+    else:
+        name_seed = f'{name_seed}_no-best-mod'
+
+    if distinguish_blur_type:
+
+        try:
+            scaled_blur_opt = edge_props.attribute_filtered('scaled_blur', 'optical')
+            rer_opt = edge_props.attribute_filtered('rer', 'optical')
+
+            scaled_blur_gauss = edge_props.attribute_filtered('scaled_blur', 'gaussian')
+            rer_gauss = edge_props.attribute_filtered('rer', 'gaussian')
+
+            plt.scatter(scaled_blur_opt, rer_opt, label='measured (optical blur kernel)', marker=MARKERS[0], color='k')
+            plt.scatter(scaled_blur_gauss, rer_gauss, label='measured (gaussian kernel)', marker=MARKERS[1], color='k')
+        except TypeError:
+            print('fyi: unable to distinguish blur types, probably because edge dataset contains only Gaussian chips')
+            plt.scatter(scaled_blur, rer, label='measured', marker='+', color='k')
+
+    else:
+        plt.scatter(scaled_blur, rer, label='measured', marker='+', color='k')
 
     plt.legend()
     plt.xlabel(r'$\sigma_{blur}$ (pixels)')
@@ -322,8 +322,11 @@ def optical_gauss_compare(edge_props):
         x_max = np.max(optical)
         x = np.linspace(x_min, x_max)
         plt.figure()
-        plt.scatter(optical, gaussian)
-        plt.plot(x, x)
+        plt.plot(x, x, label='y = x', color='k', ls='--')
+        plt.scatter(optical, gaussian, label='measured', marker='+', color='k')
+        plt.legend()
+        plt.xlabel('optical PSF RER')
+        plt.ylabel('Gaussian PSF approximation RER')
         plt.show()
 
     except RuntimeError:
@@ -332,7 +335,7 @@ def optical_gauss_compare(edge_props):
 
 if __name__ == '__main__':
 
-    _directory_key = '0019'
+    _directory_key = '0003'
     _directory, _dataset = load_dataset(_directory_key)
     _mtf_lsf_data = load_measured_mtf_lsf(_directory)
     _output_dir = Path(_directory, 'rer_assessment')
@@ -342,10 +345,43 @@ if __name__ == '__main__':
     _edge_props = get_edge_blur_properties(_dataset, _mtf_lsf_data)
 
     plot_measured_predicted_rer(_edge_props, output_dir=_output_dir,
-                                plot_model_unadjusted=False, plot_ideal_adjusted=False, plot_ideal_unadjusted=False)
+                                plot_model_unadjusted=False, plot_ideal_adjusted=False, plot_ideal_unadjusted=True,
+                                native_blur_lower_bound=0.7,
+                                scaled_blur_lower_bound=0.2, scaled_blur_upper_bound=4)
+    plot_measured_predicted_rer(_edge_props, output_dir=_output_dir,
+                                plot_model_unadjusted=False, plot_ideal_adjusted=False, plot_ideal_unadjusted=True,
+                                native_blur_lower_bound=0.7,
+                                scaled_blur_lower_bound=0.2, scaled_blur_upper_bound=4,
+                                plot_model_adjusted=False)
+    plot_measured_predicted_rer(_edge_props, output_dir=_output_dir,
+                                plot_model_unadjusted=True, plot_ideal_adjusted=False, plot_ideal_unadjusted=False,
+                                native_blur_lower_bound=0.7,
+                                scaled_blur_lower_bound=0.2, scaled_blur_upper_bound=4,
+                                plot_model_adjusted=False)
+    plot_measured_predicted_rer(_edge_props, output_dir=_output_dir,
+                                plot_model_unadjusted=True, plot_ideal_adjusted=False, plot_ideal_unadjusted=True,
+                                native_blur_lower_bound=0.7,
+                                scaled_blur_lower_bound=0.2, scaled_blur_upper_bound=4,
+                                plot_model_adjusted=False)
+    plot_measured_predicted_rer(_edge_props, output_dir=_output_dir,
+                                plot_model_unadjusted=True, plot_ideal_adjusted=False, plot_ideal_unadjusted=True,
+                                native_blur_lower_bound=0.7,
+                                scaled_blur_lower_bound=0.2, scaled_blur_upper_bound=3,
+                                plot_model_adjusted=False)
+    plot_measured_predicted_rer(_edge_props, output_dir=_output_dir,
+                                plot_model_unadjusted=True, plot_ideal_adjusted=False, plot_ideal_unadjusted=False,
+                                native_blur_lower_bound=0.7,
+                                scaled_blur_lower_bound=0.05, scaled_blur_upper_bound=3,
+                                plot_model_adjusted=True)
+
     plot_measured_predicted_rer(_edge_props, output_dir=_output_dir,
                                 plot_model_unadjusted=False, plot_ideal_adjusted=False, plot_ideal_unadjusted=False,
                                 native_blur_lower_bound=0.51)
+    plot_measured_predicted_rer(_edge_props, output_dir=_output_dir,
+                                plot_model_unadjusted=False, plot_ideal_adjusted=False, plot_ideal_unadjusted=False,
+                                native_blur_lower_bound=0.7,
+                                scaled_blur_lower_bound=0.05, scaled_blur_upper_bound=1,
+                                plot_model_adjusted=True)
 
-    optical_gauss_compare(_edge_props)
+    # optical_gauss_compare(_edge_props)
 

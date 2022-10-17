@@ -271,7 +271,10 @@ def normed_circ_ap_mtf(f, f_cut=None):
 
 if __name__ == '__main__':
 
-    _directory_key = '0019'
-    _directory, _dataset = load_dataset(_directory_key)
+    # _directory_key = '0019'
 
-    _properties = measure_props(_dataset, _directory, plot=False)
+    _directory_keys = ['0026']
+
+    for _directory_key in _directory_keys:
+        _directory, _dataset = load_dataset(_directory_key)
+        _properties = measure_props(_dataset, _directory, plot=False)

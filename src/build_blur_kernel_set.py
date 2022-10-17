@@ -44,7 +44,21 @@ def make_blur_kernel_set(config):
     ff = config['ff']
     wl = config['wl']
 
-    parametric_system_model = create_parametric_system_model(num_samples, f_num, pix_pitch, ff, wl)
+    parametric_system_models = []
+
+    if type(wl) in {list, tuple}:
+        if 'wl_weighting' in config.keys():
+            wl_weighting = config['wl_weighting']
+        else:
+            wl_weighting = np.ones(len(wl))
+
+        for i, wavelength in enumerate(wl):
+            parametric_system_model = create_parametric_system_model(num_samples, f_num, pix_pitch, ff, wavelength)
+            parametric_system_models.append(parametric_system_model)
+    else:
+        parametric_system_model = create_parametric_system_model(num_samples, f_num, pix_pitch, ff, wl)
+        parametric_system_models.append(parametric_system_model)
+        wl_weighting = [1]
 
     kernel_half_width = config['kernel_half_width']
     num_kernels = config['num_kernels']
@@ -62,17 +76,26 @@ def make_blur_kernel_set(config):
         wl_rms = choose_val(wl_rms_range)
         l_corr = choose_val(l_corr_range)
 
-        generate_mtf_psf(parametric_system_model, kernel_half_width, p_smear, sigma_jitter, wl_rms, l_corr=l_corr)
-        uprf = parametric_system_model.uprf
-        uprf = np.mean(uprf, axis=0)
-        uprf = uprf / np.sum(uprf)
+        psf = None
 
-        if np.abs(np.sum(uprf) - 1) > 0.1:
+        for j, parametric_system_model in enumerate(parametric_system_models):
+
+            generate_mtf_psf(parametric_system_model, kernel_half_width, p_smear, sigma_jitter, wl_rms, l_corr=l_corr)
+            uprf = parametric_system_model.uprf
+            if j == 0:
+                psf = uprf * wl_weighting[j]
+            else:
+                psf += uprf * wl_weighting[j]
+
+        psf = np.mean(psf, axis=0)
+        psf = psf / np.sum(psf)
+
+        if np.abs(np.sum(psf) - 1) > 0.1:
             raise ValueError('uprf must be normalized')
 
         filename = f'{STANDARD_BLUR_KERNEL_FILENAME_STEM}_{i}.npz'
         np.savez(Path(output_dir, filename),
-                 kernel=uprf,
+                 kernel=psf,
                  p_smear=p_smear,
                  sigma_jitter=sigma_jitter,
                  wl_rms=wl_rms,
@@ -84,7 +107,7 @@ def make_blur_kernel_set(config):
 
 if __name__ == '__main__':
 
-    config_filename = 'kernel_config_3.yml'
+    config_filename = 'kernel_config_pan.yml'
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_name', default=config_filename, help='config filename to be used')

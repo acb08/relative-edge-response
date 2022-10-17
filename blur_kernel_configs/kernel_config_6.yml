@@ -1,13 +1,13 @@
 ---
 
-# Q = 2
+# Q = 1.5
 num_samples: 2048
-f_num: 20  # dimensionless
+f_num: 15  # dimensionless
 pix_pitch: 8  # microns
 ff: 0.8  # dimensionless
 wl: 0.8  # microns
 
-kernel_half_width: 9
+kernel_half_width: 15
 num_kernels: 128
 
 p_smear_range: [0.05, 1.15]

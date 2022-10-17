@@ -44,10 +44,6 @@ def _noisy_gaussian1d(params, x, noise_strength=0.1):
 
 def nearest_gaussian_psf(kernel, initial_params=(1, )):
 
-    # if np.abs(np.sum(kernel) - 1) > 1e-6:
-    #     raise ValueError('kernel must be normalized')
-    # ToDo: figure out kernel normalization and make sure it's compatible with Dave's code.
-
     kernel_size = np.shape(kernel)[0]
     r = get_2d_radial(kernel_size)
     sigma_hat = Fitter(r, kernel, gaussian2d, initial_params).fit()

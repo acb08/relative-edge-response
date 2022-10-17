@@ -435,8 +435,10 @@ def make_edge_chips(config):
 
 if __name__ == '__main__':
 
+    chip_config_filename = 'chip_config_exk_pan.yml'
+
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config_name', default='chip_config.yml', help='config filename to be used')
+    parser.add_argument('--config_name', default=chip_config_filename, help='config filename to be used')
     parser.add_argument('--config_dir',
                         default=Path(ROOT_DIR, 'rer', 'chip_configs'),
                         help="configuration file directory")
