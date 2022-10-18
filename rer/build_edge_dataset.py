@@ -383,13 +383,16 @@ def make_edge_chips(config):
 if __name__ == '__main__':
 
     chip_config_filename = 'chip_config_exk_pan.yml'
+    chip_config_nums = ['0016', '0017', '0018', '0019', '0020', '0021']
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--config_name', default=chip_config_filename, help='config filename to be used')
-    parser.add_argument('--config_dir',
-                        default=Path(ROOT_DIR, 'rer', 'chip_configs'),
-                        help="configuration file directory")
-    args_passed = parser.parse_args()
-    run_config = functions.get_config(args_passed)
+    for num in chip_config_nums:
+        chip_config_filename = f'chip_config_exk_{num}.yml'
+        parser = argparse.ArgumentParser()
+        parser.add_argument('--config_name', default=chip_config_filename, help='config filename to be used')
+        parser.add_argument('--config_dir',
+                            default=Path(ROOT_DIR, 'rer', 'chip_configs'),
+                            help="configuration file directory")
+        args_passed = parser.parse_args()
+        run_config = functions.get_config(args_passed)
 
-    make_edge_chips(run_config)
+        make_edge_chips(run_config)

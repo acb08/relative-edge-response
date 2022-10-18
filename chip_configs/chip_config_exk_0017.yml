@@ -1,0 +1,6 @@
+---
+
+native_stds: null
+down_sample_ratios: [1, 2]
+blur_kernel_dir_key: '0017'
+generate_gaussian_equiv_chips: True

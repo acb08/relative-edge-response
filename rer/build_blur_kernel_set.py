@@ -112,13 +112,17 @@ def make_blur_kernel_set(config):
 if __name__ == '__main__':
 
     config_filename = 'kernel_config_pan.yml'
+    config_numbers = [3, 4, 5, 6, 7, 8]
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--config_name', default=config_filename, help='config filename to be used')
-    parser.add_argument('--config_dir',
-                        default=Path(ROOT_DIR, 'rer', 'blur_kernel_configs'),
-                        help="configuration file directory")
-    args_passed = parser.parse_args()
-    run_config = functions.get_config(args_passed)
+    for num in config_numbers:
+        config_filename = f'kernel_config_{num}.yml'
 
-    make_blur_kernel_set(run_config)
+        parser = argparse.ArgumentParser()
+        parser.add_argument('--config_name', default=config_filename, help='config filename to be used')
+        parser.add_argument('--config_dir',
+                            default=Path(ROOT_DIR, 'rer', 'blur_kernel_configs'),
+                            help="configuration file directory")
+        args_passed = parser.parse_args()
+        run_config = functions.get_config(args_passed)
+
+        make_blur_kernel_set(run_config)

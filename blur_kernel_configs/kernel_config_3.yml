@@ -8,9 +8,9 @@ ff: 0.8  # dimensionless
 wl: 0.8  # microns
 
 kernel_half_width: 9
-num_kernels: 128
+num_kernels: 64
 
-p_smear_range: [0.05, 1.15]
+p_smear_range: [0.05, 0.15]
 sigma_jitter_range: [0.05, 0.15]
 wl_rms_range: [0.05, 0.25]
 l_corr_range: [0.05, 0.2]
