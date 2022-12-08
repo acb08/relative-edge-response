@@ -1,4 +1,5 @@
 from scipy.optimize import leastsq
+from scipy.interpolate import CubicSpline
 import numpy as np
 
 
@@ -45,6 +46,21 @@ def nearest_gaussian_psf(kernel, initial_params=(1, )):
     return sigma_hat, gaussian2d([sigma_hat], r)
 
 
+def nearest_gaussian_full_width_half_max(kernel):
+
+    kernel_size = np.shape(kernel)[0]
+    r = get_2d_radial(kernel_size)
+    mid_index = kernel_size // 2
+    cross_section = (kernel[mid_index, :] + kernel[:, mid_index]) / 2
+
+    cs_interpolator = CubicSpline(np.arange(kernel_size), cross_section - np.max(cross_section) / 2)
+    r1, r2 = cs_interpolator.roots()
+    full_width_half_max = r2 - r1
+    sigma_hat = full_width_half_max / 2.2348
+
+    return sigma_hat, gaussian2d([sigma_hat], r)
+
+
 def _noisy_gauss_test_kernel(sigma, size, noise_param):
     r = get_2d_radial(size)
     kernel = gaussian2d([sigma], r)
@@ -62,6 +78,10 @@ def get_2d_radial(n):
     xx, yy = np.meshgrid(x, y)
     r = np.sqrt(xx ** 2 + yy ** 2)
     return r
+
+
+def non_gaussian_kernel_test_kernel(_size):
+    pass
 
 
 if __name__ == '__main__':

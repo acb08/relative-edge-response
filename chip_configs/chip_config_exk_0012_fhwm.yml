@@ -1,0 +1,8 @@
+---
+
+native_stds: null
+down_sample_ratios: [1, 2]
+blur_kernel_dir_key: '0012'
+generate_gaussian_equiv_chips: True
+
+fit_from_fwhm: True

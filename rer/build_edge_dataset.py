@@ -198,7 +198,8 @@ def convert_to_pil(image):
 def generate_blurred_edges_and_chips(blur_iterable, blur_kernel_dir, using_external_blur_kernels, perfect_edge,
                                      edge_indices, edge_output_dir, chip_output_dir, down_sample_ratios,
                                      edge_filename_stem='opt_edge',
-                                     chip_filename_stem='opt_chip'):
+                                     chip_filename_stem='opt_chip',
+                                     fit_from_fwhm=False):
     chips = {}
     edges = []
     nearest_gaussian_stds = []
@@ -218,7 +219,10 @@ def generate_blurred_edges_and_chips(blur_iterable, blur_kernel_dir, using_exter
             blurred_edge = apply_optical_blur(perfect_edge, kernel)
             kernel_size = int(np.shape(kernel)[0])
 
-            std, __ = fit.nearest_gaussian_psf(kernel)
+            if fit_from_fwhm:
+                std, __ = fit.nearest_gaussian_full_width_half_max(kernel)
+            else:
+                std, __ = fit.nearest_gaussian_psf(kernel)
             std = float(std)
             nearest_gaussian_stds.append(std)
 
@@ -282,11 +286,18 @@ def make_edge_chips(config):
 
         generate_gaussian_equiv_chips = config['generate_gaussian_equiv_chips']
 
+        if 'fit_from_fwhm' in config.keys():
+            fit_from_fwhm = config['fit_from_fwhm']
+
+        else:
+            fit_from_fwhm = False
+
     else:
         external_kernels = False
         generate_gaussian_equiv_chips = False
         blur_kernel_filenames = None
         blur_kernel_dir = None
+        fit_from_fwhm = False
 
     edge_image_size = rer_defs.pre_sample_size
     theta = rer_defs.angle  # degrees
@@ -328,7 +339,8 @@ def make_edge_chips(config):
                                                                                    chip_dir,
                                                                                    down_sample_ratios,
                                                                                    edge_filename_stem='opt_edge',
-                                                                                   chip_filename_stem='opt_chip')
+                                                                                   chip_filename_stem='opt_chip',
+                                                                                   fit_from_fwhm=fit_from_fwhm)
         edges.extend(opt_edges)
 
         if generate_gaussian_equiv_chips:
@@ -382,17 +394,13 @@ def make_edge_chips(config):
 
 if __name__ == '__main__':
 
-    chip_config_filename = 'chip_config_exk_pan.yml'
-    chip_config_nums = ['0016', '0017', '0018', '0019', '0020', '0021']
+    chip_config_filename = 'chip_config_exk_0021.yml'
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config_name', default=chip_config_filename, help='config filename to be used')
+    parser.add_argument('--config_dir',
+                        default=Path(ROOT_DIR, 'rer', 'chip_configs'),
+                        help="configuration file directory")
+    args_passed = parser.parse_args()
+    run_config = functions.get_config(args_passed)
 
-    for num in chip_config_nums:
-        chip_config_filename = f'chip_config_exk_{num}.yml'
-        parser = argparse.ArgumentParser()
-        parser.add_argument('--config_name', default=chip_config_filename, help='config filename to be used')
-        parser.add_argument('--config_dir',
-                            default=Path(ROOT_DIR, 'rer', 'chip_configs'),
-                            help="configuration file directory")
-        args_passed = parser.parse_args()
-        run_config = functions.get_config(args_passed)
-
-        make_edge_chips(run_config)
+    make_edge_chips(run_config)

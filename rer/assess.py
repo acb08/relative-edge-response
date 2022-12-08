@@ -239,7 +239,7 @@ def optical_gauss_compare(edge_props):
 
 if __name__ == '__main__':
 
-    _directory_key = '0003'
+    _directory_key = '0033'
     _directory, _dataset = load_dataset(_directory_key)
     _mtf_lsf_data = load_measured_mtf_lsf(_directory)
     _output_dir = Path(_directory, 'rer_assessment')

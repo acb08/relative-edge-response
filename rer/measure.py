@@ -258,7 +258,7 @@ def get_image_array(directory, name):
 
 if __name__ == '__main__':
 
-    _directory_keys = ['0026', '0027', '0028', '0029', '0030', '0031', '0032']
+    _directory_keys = ['0033']
 
     for _directory_key in _directory_keys:
         _directory, _dataset = load_dataset(_directory_key)
