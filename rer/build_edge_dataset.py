@@ -2,6 +2,7 @@
 Uses either external purely Gaussian blur kernel, externally generated blur kernels, or both to generate synthetic
 edge chips
 """
+import copy
 
 from PIL import Image
 import numpy as np
@@ -134,7 +135,7 @@ def make_perfect_edge(size=rer_defs.pre_sample_size, theta=rer_defs.angle,
 
 
 def get_kernel_size(std):
-    return 8 * int(np.round(std, 0)) + 1
+    return 8 * max(int(np.round(std, 0)), 1) + 1
 
 
 def apply_gaussian_blur(edge_image, kernel_size, sigma):
@@ -174,7 +175,7 @@ def integer_downsample(image, downsample_step_size):
         raise Exception('input image must be square')
     new_size, remainder = divmod(start_size, downsample_step_size)
 
-    chip = 2 * np.ones((new_size, new_size))  # initialize with all values set to 2 to verify now stowaway initial vals
+    chip = 2 * np.ones((new_size, new_size), dtype=np.float32)  # initialize to 2 to verify no stowaway initial vals
 
     for i in range(new_size):
         v_idx = i * downsample_step_size
@@ -195,11 +196,51 @@ def convert_to_pil(image):
     return image
 
 
-def generate_blurred_edges_and_chips(blur_iterable, blur_kernel_dir, using_external_blur_kernels, perfect_edge,
-                                     edge_indices, edge_output_dir, chip_output_dir, down_sample_ratios,
-                                     edge_filename_stem='opt_edge',
-                                     chip_filename_stem='opt_chip',
-                                     fit_from_fwhm=False):
+def make_down_sampled_chips(edge, down_sample_ratios, edge_indices, std, kernel_size,
+                            secondary_std, secondary_kernel_size,
+                            blurred_edge_name, chip_dir,
+                            using_external_blur_kernels, p_smear, sigma_jitter, wl_rms, l_corr,
+                            chip_name_stem):
+
+    chips = {}
+    combined_std = np.sqrt(std**2 + secondary_std**2)
+
+    for k, down_sample_factor in enumerate(down_sample_ratios):
+        chip, chip_size = integer_downsample(edge, down_sample_factor)
+        chip_name = f'{chip_name_stem}_{k}.png'
+        scaled_combined_std = combined_std / down_sample_factor
+        # edge_indices, kernel_size, down_sample_factor, chip_size
+        edge_buffer = check_edge_buffer(edge_indices, max((kernel_size, secondary_kernel_size)), down_sample_factor,
+                                        chip_size)
+
+        chips[chip_name] = {
+                'native_blur': std,
+                'native_blur_kernel_size': kernel_size,
+                'secondary_blur': secondary_std,
+                'secondary_blur_kernel_size': secondary_kernel_size,
+                'combined_blur': combined_std,
+                'scaled_blur': scaled_combined_std,
+                'down_sample_factor': down_sample_factor,
+                'edge_buffer': edge_buffer,
+                'parents': [blurred_edge_name],
+                'optical': using_external_blur_kernels,
+                'p_smear': p_smear,
+                'sigma_jitter': sigma_jitter,
+                'wl_rms': wl_rms,
+                'l_corr': l_corr,
+            }
+        pil_chip = convert_to_pil(chip)
+        pil_chip.save(Path(chip_dir, chip_name))
+
+    return chips
+
+
+def make_blurred_edges_and_chips(blur_iterable, blur_kernel_dir, using_external_blur_kernels, perfect_edge,
+                                 edge_indices, edge_output_dir, chip_output_dir, down_sample_ratios,
+                                 secondary_blur_vals=None,
+                                 edge_filename_stem='opt_edge',
+                                 chip_filename_stem='opt_chip',
+                                 fit_from_fwhm=False):
     chips = {}
     edges = []
     nearest_gaussian_stds = []
@@ -226,6 +267,36 @@ def generate_blurred_edges_and_chips(blur_iterable, blur_kernel_dir, using_exter
             std = float(std)
             nearest_gaussian_stds.append(std)
 
+            blurred_edge_save = convert_to_pil(blurred_edge)
+            blurred_edge_name = f'{edge_filename_stem}_{i}.png'
+            edges.append(blurred_edge_name)
+            blurred_edge_save.save(Path(edge_output_dir, blurred_edge_name))
+
+            secondary_std = 0
+            secondary_kernel_size = 0
+
+            chip_name_stem = f'{chip_filename_stem}_{i}'
+            new_chips = make_down_sampled_chips(edge=blurred_edge,
+                                                down_sample_ratios=down_sample_ratios,
+                                                edge_indices=edge_indices,
+                                                std=std,
+                                                kernel_size=kernel_size,
+                                                secondary_std=secondary_std,
+                                                secondary_kernel_size=secondary_kernel_size,
+                                                blurred_edge_name=blurred_edge_name,
+                                                chip_dir=chip_output_dir,
+                                                using_external_blur_kernels=using_external_blur_kernels,
+                                                p_smear=p_smear,
+                                                sigma_jitter=sigma_jitter,
+                                                wl_rms=wl_rms,
+                                                l_corr=l_corr,
+                                                chip_name_stem=chip_name_stem
+                                                )
+
+            key_intersection = set(new_chips.keys()).intersection(set(chips.keys()))
+            assert len(key_intersection) == 0
+            chips.update(new_chips)
+
         else:
             std = entry
             kernel_size = get_kernel_size(std)
@@ -236,35 +307,130 @@ def generate_blurred_edges_and_chips(blur_iterable, blur_kernel_dir, using_exter
             wl_rms = None
             l_corr = None
 
-        blurred_edge_save = convert_to_pil(blurred_edge)
-        blurred_edge_name = f'{edge_filename_stem}_{i}.png'
-        edges.append(blurred_edge_name)
-        blurred_edge_save.save(Path(edge_output_dir, blurred_edge_name))
+            if secondary_blur_vals:
 
-        for j, down_sample_factor in enumerate(down_sample_ratios):
+                for j, secondary_std in enumerate(secondary_blur_vals):
 
-            scaled_std = std / down_sample_factor
-            chip, chip_size = integer_downsample(blurred_edge, down_sample_factor)
-            edge_buffer = check_edge_buffer(edge_indices, kernel_size, down_sample_factor, chip_size)
+                    if secondary_std == 0:
+                        secondary_kernel_size = 0
+                        double_blurred_edge = copy.deepcopy(blurred_edge)
+                    else:
+                        secondary_kernel_size = get_kernel_size(secondary_std)
+                        double_blurred_edge = apply_gaussian_blur(blurred_edge, secondary_kernel_size, secondary_std)
 
-            chip = convert_to_pil(chip)
-            chip_name = f'{chip_filename_stem}_{i}_{j}.png'
-            chips[chip_name] = {
-                'native_blur': std,
-                'native_blur_kernel_size': kernel_size,
-                'scaled_blur': scaled_std,
-                'down_sample_factor': down_sample_factor,
-                'edge_buffer': edge_buffer,
-                'parents': [blurred_edge_name],
+                    blurred_edge_save = convert_to_pil(double_blurred_edge)
+                    blurred_edge_name = f'{edge_filename_stem}_{i}_{j}.png'
+                    blurred_edge_save.save(Path(edge_output_dir, blurred_edge_name))
+                    edges.append(blurred_edge_name)
 
-                'optical': using_external_blur_kernels,
-                'p_smear': p_smear,
-                'sigma_jitter': sigma_jitter,
-                'wl_rms': wl_rms,
-                'l_corr': l_corr,
-            }
+                    chip_name_stem = f'{chip_filename_stem}_{i}_{j}'
+                    new_chips = make_down_sampled_chips(edge=double_blurred_edge,
+                                                        down_sample_ratios=down_sample_ratios,
+                                                        edge_indices=edge_indices,
+                                                        std=std,
+                                                        kernel_size=kernel_size,
+                                                        secondary_std=secondary_std,
+                                                        secondary_kernel_size=secondary_kernel_size,
+                                                        blurred_edge_name=blurred_edge_name,
+                                                        chip_dir=chip_output_dir,
+                                                        using_external_blur_kernels=using_external_blur_kernels,
+                                                        p_smear=p_smear,
+                                                        sigma_jitter=sigma_jitter,
+                                                        wl_rms=wl_rms,
+                                                        l_corr=l_corr,
+                                                        chip_name_stem=chip_name_stem
+                                                        )
 
-            chip.save(Path(chip_output_dir, chip_name))
+                    key_intersection = set(new_chips.keys()).intersection(set(chips.keys()))
+                    assert len(key_intersection) == 0
+                    chips.update(new_chips)
+
+            else:
+                blurred_edge_save = convert_to_pil(blurred_edge)
+                blurred_edge_name = f'{edge_filename_stem}_{i}.png'
+                edges.append(blurred_edge_name)
+                blurred_edge_save.save(Path(edge_output_dir, blurred_edge_name))
+
+                secondary_std = 0
+                secondary_kernel_size = 0
+
+                chip_name_stem = f'{chip_filename_stem}_{i}'
+                new_chips = make_down_sampled_chips(edge=blurred_edge,
+                                                    down_sample_ratios=down_sample_ratios,
+                                                    edge_indices=edge_indices,
+                                                    std=std,
+                                                    kernel_size=kernel_size,
+                                                    secondary_std=secondary_std,
+                                                    secondary_kernel_size=secondary_kernel_size,
+                                                    blurred_edge_name=blurred_edge_name,
+                                                    chip_dir=chip_output_dir,
+                                                    using_external_blur_kernels=using_external_blur_kernels,
+                                                    p_smear=p_smear,
+                                                    sigma_jitter=sigma_jitter,
+                                                    wl_rms=wl_rms,
+                                                    l_corr=l_corr,
+                                                    chip_name_stem=chip_name_stem
+                                                    )
+
+                key_intersection = set(new_chips.keys()).intersection(set(chips.keys()))
+                assert len(key_intersection) == 0
+                chips.update(new_chips)
+
+        # for j, down_sample_factor in enumerate(down_sample_ratios):
+        #
+        #     scaled_std = std / down_sample_factor
+        #     chip, chip_size = integer_downsample(blurred_edge, down_sample_factor)
+        #     edge_buffer = check_edge_buffer(edge_indices, kernel_size, down_sample_factor, chip_size)
+        #
+        #     if secondary_blur_vals:
+        #         for k, secondary_std in enumerate(secondary_blur_vals):
+        #             secondary_kernel_size = None
+        #             new_edge_buffer = edge_buffer
+        #             if secondary_std > 0:
+        #                 secondary_kernel_size = get_kernel_size(secondary_std)
+        #                 chip = apply_gaussian_blur(chip, secondary_kernel_size, secondary_std)
+        #                 new_edge_buffer = edge_buffer - secondary_kernel_size // 2
+        #                 if edge_buffer < 10:
+        #                     print(f'Warning: narrow edge buffer: {edge_buffer}')
+        #
+        #             scaled_combined_std = np.sqrt(scaled_std ** 2 + secondary_std ** 2)
+        #             chip_name = f'{chip_filename_stem}_{i}_{j}_{k}.png'
+        #             pil_chip = convert_to_pil(chip)
+        #             chips[chip_name] = {
+        #                 'native_blur': std,
+        #                 'native_blur_kernel_size': kernel_size,
+        #                 'secondary_blur': secondary_std,
+        #                 'secondary_blur_kernel_size': secondary_kernel_size,
+        #                 'scaled_blur': scaled_combined_std,
+        #                 'down_sample_factor': down_sample_factor,
+        #                 'edge_buffer': new_edge_buffer,
+        #                 'parents': [blurred_edge_name],
+        #                 'optical': using_external_blur_kernels,
+        #                 'p_smear': p_smear,
+        #                 'sigma_jitter': sigma_jitter,
+        #                 'wl_rms': wl_rms,
+        #                 'l_corr': l_corr,
+        #             }
+        #             pil_chip.save(Path(chip_output_dir, chip_name))
+
+            # else:
+            # chip_name = f'{chip_filename_stem}_{i}_{j}.png'
+            # chip = convert_to_pil(chip)
+            # chips[chip_name] = {
+            #     'native_blur': std,
+            #     'native_blur_kernel_size': kernel_size,
+            #     'scaled_blur': scaled_std,
+            #     'down_sample_factor': down_sample_factor,
+            #     'edge_buffer': edge_buffer,
+            #     'parents': [blurred_edge_name],
+            #
+            #     'optical': using_external_blur_kernels,
+            #     'p_smear': p_smear,
+            #     'sigma_jitter': sigma_jitter,
+            #     'wl_rms': wl_rms,
+            #     'l_corr': l_corr,
+            # }
+            # chip.save(Path(chip_output_dir, chip_name))
 
     return chips, edges, nearest_gaussian_stds
 
@@ -299,6 +465,11 @@ def make_edge_chips(config):
         blur_kernel_dir = None
         fit_from_fwhm = False
 
+    if 'secondary_blur_vals' in config.keys():
+        secondary_blur_vals = config['secondary_blur_vals']
+    else:
+        secondary_blur_vals = None
+
     edge_image_size = rer_defs.pre_sample_size
     theta = rer_defs.angle  # degrees
     dark_reflectance = rer_defs.lam_black_reflectance
@@ -330,45 +501,48 @@ def make_edge_chips(config):
     edges = [perfect_edge_name]
 
     if external_kernels:
-        chips, opt_edges, nearest_gaussian_stds = generate_blurred_edges_and_chips(blur_kernel_filenames,
-                                                                                   blur_kernel_dir,
-                                                                                   external_kernels,
-                                                                                   perfect_edge,
-                                                                                   edge_indices,
-                                                                                   edge_dir,
-                                                                                   chip_dir,
-                                                                                   down_sample_ratios,
-                                                                                   edge_filename_stem='opt_edge',
-                                                                                   chip_filename_stem='opt_chip',
-                                                                                   fit_from_fwhm=fit_from_fwhm)
+        chips, opt_edges, nearest_gaussian_stds = make_blurred_edges_and_chips(blur_kernel_filenames,
+                                                                               blur_kernel_dir,
+                                                                               external_kernels,
+                                                                               perfect_edge,
+                                                                               edge_indices,
+                                                                               edge_dir,
+                                                                               chip_dir,
+                                                                               down_sample_ratios,
+                                                                               edge_filename_stem='opt_edge',
+                                                                               chip_filename_stem='opt_chip',
+                                                                               fit_from_fwhm=fit_from_fwhm,
+                                                                               secondary_blur_vals=secondary_blur_vals)
         edges.extend(opt_edges)
 
         if generate_gaussian_equiv_chips:
-            gauss_equiv_chips, gauss_edges, __ = generate_blurred_edges_and_chips(nearest_gaussian_stds,
-                                                                                  blur_kernel_dir=None,
-                                                                                  using_external_blur_kernels=False,
-                                                                                  perfect_edge=perfect_edge,
-                                                                                  edge_indices=edge_indices,
-                                                                                  edge_output_dir=edge_dir,
-                                                                                  chip_output_dir=chip_dir,
-                                                                                  down_sample_ratios=down_sample_ratios,
-                                                                                  edge_filename_stem='gauss_edge',
-                                                                                  chip_filename_stem='gauss_chip')
+            gauss_equiv_chips, gauss_edges, __ = make_blurred_edges_and_chips(nearest_gaussian_stds,
+                                                                              blur_kernel_dir=None,
+                                                                              using_external_blur_kernels=False,
+                                                                              perfect_edge=perfect_edge,
+                                                                              edge_indices=edge_indices,
+                                                                              edge_output_dir=edge_dir,
+                                                                              chip_output_dir=chip_dir,
+                                                                              down_sample_ratios=down_sample_ratios,
+                                                                              edge_filename_stem='gauss_edge',
+                                                                              chip_filename_stem='gauss_chip',
+                                                                              secondary_blur_vals=secondary_blur_vals)
 
             chips.update(gauss_equiv_chips)
             edges.extend(gauss_edges)
 
     else:
-        chips, gauss_edges, __ = generate_blurred_edges_and_chips(native_stds,
-                                                                  blur_kernel_dir=None,
-                                                                  using_external_blur_kernels=False,
-                                                                  perfect_edge=perfect_edge,
-                                                                  edge_indices=edge_indices,
-                                                                  edge_output_dir=edge_dir,
-                                                                  chip_output_dir=chip_dir,
-                                                                  down_sample_ratios=down_sample_ratios,
-                                                                  edge_filename_stem='gauss_edge',
-                                                                  chip_filename_stem='gauss_chip')
+        chips, gauss_edges, __ = make_blurred_edges_and_chips(native_stds,
+                                                              blur_kernel_dir=None,
+                                                              using_external_blur_kernels=False,
+                                                              perfect_edge=perfect_edge,
+                                                              edge_indices=edge_indices,
+                                                              edge_output_dir=edge_dir,
+                                                              chip_output_dir=chip_dir,
+                                                              down_sample_ratios=down_sample_ratios,
+                                                              edge_filename_stem='gauss_edge',
+                                                              chip_filename_stem='gauss_chip',
+                                                              secondary_blur_vals=secondary_blur_vals)
 
         edges.extend(gauss_edges)
 
@@ -376,6 +550,7 @@ def make_edge_chips(config):
         'image_size': edge_image_size,
         'down_sample_ratios': down_sample_ratios,
         'native_stds': native_stds,
+        'secondary_blur_vals': secondary_blur_vals
     }
 
     dataset = {
@@ -394,7 +569,7 @@ def make_edge_chips(config):
 
 if __name__ == '__main__':
 
-    chip_config_filename = 'chip_config_exk_0021.yml'
+    chip_config_filename = 'chip_config_2-stage_no_down_sample.yml'
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_name', default=chip_config_filename, help='config filename to be used')
     parser.add_argument('--config_dir',
