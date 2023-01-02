@@ -264,7 +264,7 @@ def optical_gauss_compare(edge_props):
 
 if __name__ == '__main__':
 
-    _directory_key = '0051'
+    _directory_key = '0055'
     _distinguish_optical_gaussian = False
 
     _directory, _dataset = load_dataset(_directory_key)

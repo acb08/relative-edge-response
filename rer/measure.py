@@ -11,15 +11,15 @@ from rer.definitions import ROOT_DIR, REL_PATHS, STANDARD_DATASET_FILENAME
 import json
 
 
-def plot_rows(chip, interval=1):
-
-    n_rows = np.shape(chip)[0]
-    plt.figure()
-    for i in range(n_rows):
-        row = chip[i, :]
-        if i % interval == 0:
-            plt.plot(row)
-    plt.show()
+# def plot_rows(chip, interval=1):
+#
+#     n_rows = np.shape(chip)[0]
+#     plt.figure()
+#     for i in range(n_rows):
+#         row = chip[i, :]
+#         if i % interval == 0:
+#             plt.plot(row)
+#     plt.show()
 
 
 def pad_signal(x, num):
@@ -71,17 +71,17 @@ def fit_edge(rows, plot=True):
     if plot:
 
         best_fit_line = slope * row_indices + offset
-        plt.figure()
-        plt.scatter(row_indices, centroids, marker='+', s=30, color='r')
-        plt.plot(row_indices, best_fit_line, color='b')
-        plt.xlabel('row index')
-        plt.ylabel('edge location')
-        plt.show()
+        # plt.figure()
+        # plt.scatter(row_indices, centroids, marker='+', s=30, color='r')
+        # plt.plot(row_indices, best_fit_line, color='b')
+        # plt.xlabel('row index')
+        # plt.ylabel('edge location')
+        # plt.show()
 
     return centroids, fit
 
 
-def oversampled_esf(rows, fit, oversample_factor=4, plot=False):
+def oversampled_esf(rows, fit, oversample_factor=4, ax=None):
 
     n, m = np.shape(rows)
     x_coarse = np.arange(m)
@@ -104,14 +104,20 @@ def oversampled_esf(rows, fit, oversample_factor=4, plot=False):
         esf_mean = np.mean(rows[indices])
         esf_estimate[idx] = esf_mean
 
-    if plot:
+    if ax is not None:
 
-        plt.figure()
+        edge_discard = 0.4
+        scatter_discard = int(edge_discard * len(x_shifted))
+        plot_discard = int(edge_discard * len(x_oversampled))
+
         for i in range(n):
-            plt.scatter(x_shifted[i], rows[i])
-        plt.plot(x_oversampled, esf_estimate)
-        plt.title('shifted')
-        plt.show()
+            ax.scatter(x_shifted[i][scatter_discard:-scatter_discard], rows[i][scatter_discard:-scatter_discard],
+                       color='k')
+        ax.plot(x_oversampled[plot_discard:-plot_discard], esf_estimate[plot_discard:-plot_discard],
+                color='k', label='interpolated edge spread function')
+        ax.set_xlabel('pixel')
+        ax.set_ylabel('scaled value')
+        ax.legend()
 
     target_length = oversample_factor * m
     x_oversampled, esf_estimate = fix_sample_length(x_oversampled, esf_estimate,
@@ -168,14 +174,14 @@ def get_mtf(lsf):
     return mtf
 
 
-def estimate_mtf(chip, plot=False):
+def estimate_mtf(chip, plot=True, ax=None):
 
     centroids, fit = fit_edge(chip, plot=plot)
-    x_oversampled, esf, oversample_factor = oversampled_esf(chip, fit, plot=plot)
+    x_oversampled, esf, oversample_factor = oversampled_esf(chip, fit, ax=ax)
     lsf = get_lsf(esf, pad=True)
     mtf = get_mtf(lsf)
 
-    return mtf, esf, oversample_factor
+    return mtf, esf, oversample_factor, x_oversampled
 
 
 def measure_props(dataset, directory, chip_data_key='chips', plot=False, chip_sub_directory=REL_PATHS['edge_chips']):
@@ -194,8 +200,13 @@ def measure_props(dataset, directory, chip_data_key='chips', plot=False, chip_su
 
     for distorted_chip_name in blurred_chip_data.keys():
 
+        if plot:
+            fig, ax = plt.subplots()
+        else:
+            ax = None
+
         distorted_chip = get_image_array(chip_directory, distorted_chip_name)
-        mtf, esf, oversample_factor = estimate_mtf(distorted_chip)
+        mtf, esf, oversample_factor, x_oversampled = estimate_mtf(distorted_chip, ax=ax)
         rer = get_rer(esf, oversample_factor=oversample_factor)
         properties[str(distorted_chip_name)] = {
             'mtf': [float(val) for val in mtf],
@@ -204,6 +215,8 @@ def measure_props(dataset, directory, chip_data_key='chips', plot=False, chip_su
             'oversample_factor': oversample_factor
         }
         if plot:
+            stem = distorted_chip_name.split('.')[0]
+            plt.savefig(Path(output_dir, f'{stem}_esf.png'))
             plot_mtf(mtf, output_dir=output_dir, chip_name=distorted_chip_name)
 
     with open(Path(directory, 'mtf_lsf.json'), 'w') as file:
@@ -231,7 +244,7 @@ def plot_mtf(mtf, output_dir=None, chip_name=None, f_max=None):
     plt.legend()
     if output_dir and chip_name:
         plt.savefig(Path(output_dir, chip_name))
-    plt.show()
+    # plt.show()
 
     plt.figure()
     plt.plot(freq_axis[:n_plot_nyquist], mtf[:n_plot_nyquist], label='standard')
@@ -240,7 +253,7 @@ def plot_mtf(mtf, output_dir=None, chip_name=None, f_max=None):
     plt.legend()
     if output_dir and chip_name:
         plt.savefig(Path(output_dir, f'nyquist_{chip_name}'))
-    plt.show()
+    # plt.show()
 
 
 def load_dataset(directory_key):
@@ -256,10 +269,14 @@ def get_image_array(directory, name):
     return np.asarray(Image.open(Path(directory, name)))
 
 
+def plot_esf(g):
+    pass
+
+
 if __name__ == '__main__':
 
-    _directory_keys = ['0054']
+    _directory_keys = ['0056']
 
     for _directory_key in _directory_keys:
         _directory, _dataset = load_dataset(_directory_key)
-        _properties = measure_props(_dataset, _directory, plot=False)
+        _properties = measure_props(_dataset, _directory, plot=True)

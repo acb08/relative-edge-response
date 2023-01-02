@@ -569,7 +569,7 @@ def make_edge_chips(config):
 
 if __name__ == '__main__':
 
-    chip_config_filename = 'chip_config_2-stage_no_down_sample.yml'
+    chip_config_filename = 'chip_config_visual_demo.yml'
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_name', default=chip_config_filename, help='config filename to be used')
     parser.add_argument('--config_dir',
