@@ -61,6 +61,15 @@ def nearest_gaussian_full_width_half_max(kernel):
     return sigma_hat, gaussian2d([sigma_hat], r)
 
 
+def nearest_gaussian_peak_val(kernel):
+
+    kernel_size = np.shape(kernel)[0]
+    peak_val = np.max(kernel)
+
+
+    pass
+
+
 def _noisy_gauss_test_kernel(sigma, size, noise_param):
     r = get_2d_radial(size)
     kernel = gaussian2d([sigma], r)

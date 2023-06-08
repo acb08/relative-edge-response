@@ -1,0 +1,16 @@
+---
+
+# Q = 0.75
+#num_samples: 2048
+f_num: 10  # dimensionless
+pix_pitch: 4  # microns
+ff: 1  # dimensionless
+wl: 0.8  # microns
+
+kernel_half_width: 11
+num_kernels: 1
+
+p_smear_range: [0, 0]
+sigma_jitter_range: [0, 0]
+wl_rms_range: [0, 0]
+l_corr_range: [0, 0]
